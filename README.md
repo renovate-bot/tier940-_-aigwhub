@@ -17,11 +17,53 @@ Modern web interface for using multiple AI CLI tools (Claude Code, Gemini CLI, e
 
 ### Prerequisites
 
-- VS Code with Dev Containers extension
-- Docker & Docker Compose
-- Claude CLI installed and authenticated (`claude auth`)
+1. **Claude CLI**: Install and authenticate
+   ```bash
+   # Install Claude CLI
+   npm install -g @anthropic-ai/claude-code
+   
+   # Authenticate (you'll need your API key)
+   claude auth
+   ```
 
-### Using Standalone Binary
+2. **Redis server**: For session management
+   ```bash
+   # Using Docker (Recommended)
+   docker run -d -p 6379:6379 --name redis redis:7.2-alpine
+   
+   # Or install locally (Ubuntu/Debian)
+   sudo apt install redis-server
+   sudo systemctl start redis-server
+   
+   # Or macOS with Homebrew
+   brew install redis
+   brew services start redis
+   ```
+
+### Installation
+
+#### Option 1: Download Pre-built Binary (Recommended)
+
+1. Go to [Releases](https://github.com/tier940/aigwhub/releases) page
+2. Download the appropriate binary for your platform:
+   - **Linux x64**: `ai-gateway-hub-v*-linux-amd64.tar.gz`
+   - **Linux ARM64**: `ai-gateway-hub-v*-linux-arm64.tar.gz`
+   - **macOS x64**: `ai-gateway-hub-v*-darwin-amd64.tar.gz`
+   - **macOS ARM64**: `ai-gateway-hub-v*-darwin-arm64.tar.gz`
+   - **Windows x64**: `ai-gateway-hub-v*-windows-amd64.zip`
+
+3. Extract and run:
+```bash
+# Linux/macOS
+tar -xzf ai-gateway-hub-v*-*.tar.gz
+chmod +x ai-gateway-hub
+./ai-gateway-hub
+
+# Windows
+# Extract the zip file and run ai-gateway-hub.exe
+```
+
+#### Option 2: Build from Source (Development)
 
 **⚠️ Important**: All operations should be performed in the `run/` directory.
 

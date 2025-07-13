@@ -17,13 +17,53 @@
 
 ### 前提条件
 
-- VS Code with Dev Containers extension
-- Docker & Docker Compose
-- Claude CLIがインストール済みで認証完了（`claude auth`）
+1. **Claude CLI**: インストールと認証
+   ```bash
+   # Claude CLIをインストール
+   npm install -g @anthropic-ai/claude-code
+   
+   # 認証（APIキーが必要）
+   claude auth
+   ```
 
-### 単体実行版を使用する場合
+2. **Redisサーバー**: セッション管理用
+   ```bash
+   # Docker使用（推奨）
+   docker run -d -p 6379:6379 --name redis redis:7.2-alpine
+   
+   # またはローカルインストール（Ubuntu/Debian）
+   sudo apt install redis-server
+   sudo systemctl start redis-server
+   
+   # またはmacOSでHomebrew
+   brew install redis
+   brew services start redis
+   ```
 
-ビルド済みの実行ファイルを使用する場合：
+### インストール
+
+#### 方法1: ビルド済みバイナリをダウンロード（推奨）
+
+1. [リリースページ](https://github.com/tier940/aigwhub/releases)に移動
+2. プラットフォームに適したバイナリをダウンロード：
+   - **Linux x64**: `ai-gateway-hub-v*-linux-amd64.tar.gz`
+   - **Linux ARM64**: `ai-gateway-hub-v*-linux-arm64.tar.gz`
+   - **macOS x64**: `ai-gateway-hub-v*-darwin-amd64.tar.gz`
+   - **macOS ARM64**: `ai-gateway-hub-v*-darwin-arm64.tar.gz`
+   - **Windows x64**: `ai-gateway-hub-v*-windows-amd64.zip`
+
+3. 展開して実行：
+```bash
+# Linux/macOS
+tar -xzf ai-gateway-hub-v*-*.tar.gz
+chmod +x ai-gateway-hub
+./ai-gateway-hub
+
+# Windows
+# zipファイルを展開してai-gateway-hub.exeを実行
+```
+
+#### 方法2: ソースからビルド（開発用）
 
 ```bash
 # runディレクトリに移動
