@@ -43,6 +43,18 @@ echo "📍 URL: http://localhost:8080"
 echo "🛑 Stop with /go-stop or press Ctrl+C"
 echo ""
 
-# Run application in DevContainer
+# Run application in DevContainer as daemon
 # Set Redis connection to DevContainer's redis service
-docker exec -w /workspace/run -e REDIS_ADDR=redis:6379 devcontainer-app-1 ./ai-gateway-hub
+docker exec -d -w /workspace/run -e REDIS_ADDR=redis:6379 devcontainer-app-1 ./ai-gateway-hub
+
+# Wait a bit and check if it started
+sleep 2
+if docker exec devcontainer-app-1 pgrep -x ai-gateway-hub > /dev/null; then
+    echo "✅ Application started successfully as daemon"
+    echo "📍 Access at: http://localhost:8080"
+    echo "📊 View logs: docker exec devcontainer-app-1 tail -f /workspace/logs/system.log"
+else
+    echo "❌ Failed to start application"
+    echo "💡 Check logs: docker exec devcontainer-app-1 cat /workspace/logs/error.log"
+    exit 1
+fi
