@@ -55,19 +55,13 @@ jobs:
       env:
         GOOS: ${{ matrix.goos }}
         GOARCH: ${{ matrix.goarch }}
-        CGO_ENABLED: 1
       run: |
-        # Install cross-compilation tools for CGO
-        if [ "$GOOS" != "linux" ] || [ "$GOARCH" != "amd64" ]; then
-          sudo apt-get update
-          sudo apt-get install -y gcc-multilib
-          if [ "$GOOS" = "windows" ]; then
-            sudo apt-get install -y gcc-mingw-w64
-            export CC=x86_64-w64-mingw32-gcc
-          elif [ "$GOOS" = "darwin" ]; then
-            # For macOS, we'll disable CGO to avoid cross-compilation issues
-            export CGO_ENABLED=0
-          fi
+        # Set CGO based on platform
+        if [ "$GOOS" = "linux" ]; then
+          export CGO_ENABLED=1
+        else
+          # Disable CGO for cross-compilation to avoid toolchain issues
+          export CGO_ENABLED=0
         fi
         
         # Set binary name
@@ -88,7 +82,7 @@ jobs:
         fi
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ai-gateway-hub-${{ matrix.goos }}-${{ matrix.goarch }}
         path: ai-gateway-hub-*
@@ -161,7 +155,7 @@ jobs:
         echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
 
     - name: Download all artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         path: artifacts
 
