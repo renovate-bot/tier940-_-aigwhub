@@ -11,7 +11,7 @@ import (
 )
 
 // HealthCheckHandler returns the health status
-func HealthCheckHandler(redisClient *redis.Client) gin.HandlerFunc {
+func HealthCheckHandler(redisClient *redis.Client, version string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Check Redis connection
 		redisStatus := "healthy"
@@ -20,8 +20,9 @@ func HealthCheckHandler(redisClient *redis.Client) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"status": "healthy",
-			"redis":  redisStatus,
+			"status":  "healthy",
+			"version": version,
+			"redis":   redisStatus,
 		})
 	}
 }

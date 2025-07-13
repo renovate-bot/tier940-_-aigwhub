@@ -25,6 +25,9 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// Version information (set during build)
+var version = "dev"
+
 //go:embed web/templates/*.html
 var templateFiles embed.FS
 
@@ -145,7 +148,7 @@ func main() {
 	// API routes
 	api := router.Group("/api")
 	{
-		api.GET("/health", handlers.HealthCheckHandler(redisClient))
+		api.GET("/health", handlers.HealthCheckHandler(redisClient, version))
 		api.GET("/chats", handlers.GetChatsHandler(chatService))
 		api.POST("/chats", handlers.CreateChatHandler(chatService))
 		api.DELETE("/chats/:id", handlers.DeleteChatHandler(chatService))
