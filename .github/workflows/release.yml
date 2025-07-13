@@ -55,37 +55,25 @@ jobs:
       env:
         GOOS: ${{ matrix.goos }}
         GOARCH: ${{ matrix.goarch }}
+        CGO_ENABLED: 0
       run: |
-        # Set CGO based on platform
-        if [ "$GOOS" = "linux" ]; then
-          export CGO_ENABLED=1
-        else
-          # Disable CGO for cross-compilation to avoid toolchain issues
-          export CGO_ENABLED=0
-        fi
+        # Note: CGO disabled for all platforms to avoid cross-compilation issues
+        # SQLite will use pure Go implementation (modernc.org/sqlite)
         
-        # Set binary name
-        BINARY_NAME=ai-gateway-hub
+        # Set binary name with platform suffix
+        BINARY_NAME=ai-gateway-hub-${{ steps.version.outputs.VERSION }}-${GOOS}-${GOARCH}
         if [ "$GOOS" = "windows" ]; then
           BINARY_NAME=${BINARY_NAME}.exe
         fi
         
         # Build
         go build -ldflags="-s -w -X main.version=${{ steps.version.outputs.VERSION }}" -o ${BINARY_NAME} ./main.go
-        
-        # Create archive
-        ARCHIVE_NAME=ai-gateway-hub-${{ steps.version.outputs.VERSION }}-${GOOS}-${GOARCH}
-        if [ "$GOOS" = "windows" ]; then
-          zip ${ARCHIVE_NAME}.zip ${BINARY_NAME}
-        else
-          tar -czf ${ARCHIVE_NAME}.tar.gz ${BINARY_NAME}
-        fi
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: ai-gateway-hub-${{ matrix.goos }}-${{ matrix.goarch }}
-        path: ai-gateway-hub-*
+        path: ai-gateway-hub-${{ steps.version.outputs.VERSION }}-*
 
   release:
     name: Create Release
@@ -117,7 +105,7 @@ jobs:
     - name: Prepare release assets
       run: |
         mkdir -p release-assets
-        find artifacts -name "ai-gateway-hub-*" -type f \( -name "*.tar.gz" -o -name "*.zip" \) -exec cp {} release-assets/ \;
+        find artifacts -name "ai-gateway-hub-*" -type f -exec cp {} release-assets/ \;
         ls -la release-assets/
 
     - name: Generate release notes
@@ -143,18 +131,17 @@ jobs:
         
         | Platform | Architecture | Download |
         |----------|--------------|----------|
-        | Linux | x64 | `ai-gateway-hub-${{ steps.version.outputs.VERSION }}-linux-amd64.tar.gz` |
-        | Linux | ARM64 | `ai-gateway-hub-${{ steps.version.outputs.VERSION }}-linux-arm64.tar.gz` |
-        | macOS | x64 | `ai-gateway-hub-${{ steps.version.outputs.VERSION }}-darwin-amd64.tar.gz` |
-        | macOS | ARM64 | `ai-gateway-hub-${{ steps.version.outputs.VERSION }}-darwin-arm64.tar.gz` |
-        | Windows | x64 | `ai-gateway-hub-${{ steps.version.outputs.VERSION }}-windows-amd64.zip` |
+        | Linux | x64 | `ai-gateway-hub-${{ steps.version.outputs.VERSION }}-linux-amd64` |
+        | Linux | ARM64 | `ai-gateway-hub-${{ steps.version.outputs.VERSION }}-linux-arm64` |
+        | macOS | x64 | `ai-gateway-hub-${{ steps.version.outputs.VERSION }}-darwin-amd64` |
+        | macOS | ARM64 | `ai-gateway-hub-${{ steps.version.outputs.VERSION }}-darwin-arm64` |
+        | Windows | x64 | `ai-gateway-hub-${{ steps.version.outputs.VERSION }}-windows-amd64.exe` |
         
         
         ### 🛠️ Installation
         1. Download the appropriate binary for your platform
-        2. Extract the archive
-        3. Make the binary executable (Linux/macOS): `chmod +x ai-gateway-hub`
-        4. Run: `./ai-gateway-hub`
+        2. Make the binary executable (Linux/macOS): `chmod +x ai-gateway-hub-*`
+        3. Run: `./ai-gateway-hub-*`
         
         ### 📋 Requirements
         - Claude CLI installed and authenticated
