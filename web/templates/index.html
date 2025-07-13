@@ -1,0 +1,203 @@
+{{template "layout" .}}
+
+{{define "content"}}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" x-data="chatList()">
+    <!-- Hero section -->
+    <div class="text-center mb-12">
+        <h1 class="text-4xl font-bold mb-4">AI Gateway Hub</h1>
+        <p class="text-xl text-gray-600 dark:text-gray-400">
+            複数のAI CLIツールをブラウザで利用できるモダンなWebインターフェース
+        </p>
+    </div>
+    
+    <!-- Create new chat -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
+        <h2 class="text-2xl font-semibold mb-4">新しいチャットを開始</h2>
+        
+        <form @submit.prevent="createChat" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium mb-2">チャットタイトル</label>
+                <input 
+                    type="text" 
+                    x-model="newChat.title" 
+                    class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700"
+                    placeholder="例: プロジェクトの実装について"
+                    required
+                >
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium mb-2">AIプロバイダー</label>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <template x-for="provider in providers" :key="provider.id">
+                        <label class="relative">
+                            <input 
+                                type="radio" 
+                                :value="provider.id" 
+                                x-model="newChat.provider"
+                                :disabled="!provider.available"
+                                class="sr-only peer"
+                            >
+                            <div class="p-4 border-2 rounded-lg cursor-pointer transition-all peer-checked:border-primary peer-checked:bg-primary/10 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed" :class="provider.available ? 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500' : 'border-gray-200 dark:border-gray-700'">
+                                <h3 class="font-semibold" x-text="provider.name"></h3>
+                                <p class="text-sm text-gray-600 dark:text-gray-400" x-text="provider.description"></p>
+                                <span x-show="!provider.available" class="text-xs text-red-500 dark:text-red-400">利用不可</span>
+                            </div>
+                        </label>
+                    </template>
+                </div>
+            </div>
+            
+            <button 
+                type="submit" 
+                :disabled="!newChat.provider || loading"
+                class="w-full bg-primary text-white font-medium py-2 px-4 rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+                <span x-show="!loading">チャットを開始</span>
+                <span x-show="loading">作成中...</span>
+            </button>
+        </form>
+    </div>
+    
+    <!-- Recent chats -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <h2 class="text-2xl font-semibold mb-4">最近のチャット</h2>
+        
+        <div x-show="chats.length === 0" class="text-center py-8 text-gray-500 dark:text-gray-400">
+            まだチャットがありません
+        </div>
+        
+        <div x-show="chats.length > 0" class="space-y-3">
+            <template x-for="chat in chats" :key="chat.id">
+                <div class="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <a :href="`/chat/${chat.id}`" class="flex-1">
+                        <h3 class="font-medium" x-text="chat.title"></h3>
+                        <div class="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            <span x-text="chat.provider"></span>
+                            <span x-text="formatDate(chat.updated_at)"></span>
+                        </div>
+                    </a>
+                    
+                    <button 
+                        @click="deleteChat(chat.id)" 
+                        class="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        title="削除"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                        </svg>
+                    </button>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>
+{{end}}
+
+{{define "scripts"}}
+<script>
+function chatList() {
+    return {
+        providers: [],
+        chats: [],
+        newChat: {
+            title: '',
+            provider: ''
+        },
+        loading: false,
+        
+        async init() {
+            await this.loadProviders();
+            await this.loadChats();
+        },
+        
+        async loadProviders() {
+            try {
+                const response = await fetch('/api/providers');
+                this.providers = await response.json();
+                
+                // Select first available provider by default
+                const availableProvider = this.providers.find(p => p.available);
+                if (availableProvider) {
+                    this.newChat.provider = availableProvider.id;
+                }
+            } catch (error) {
+                console.error('Failed to load providers:', error);
+            }
+        },
+        
+        async loadChats() {
+            try {
+                const response = await fetch('/api/chats');
+                this.chats = await response.json();
+            } catch (error) {
+                console.error('Failed to load chats:', error);
+            }
+        },
+        
+        async createChat() {
+            if (!this.newChat.title || !this.newChat.provider) return;
+            
+            this.loading = true;
+            try {
+                const response = await fetch('/api/chats', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(this.newChat)
+                });
+                
+                if (response.ok) {
+                    const chat = await response.json();
+                    window.location.href = `/chat/${chat.id}`;
+                } else {
+                    alert('チャットの作成に失敗しました');
+                }
+            } catch (error) {
+                console.error('Failed to create chat:', error);
+                alert('チャットの作成に失敗しました');
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        async deleteChat(id) {
+            if (!confirm('このチャットを削除してもよろしいですか？')) return;
+            
+            try {
+                const response = await fetch(`/api/chats/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    this.chats = this.chats.filter(c => c.id !== id);
+                } else {
+                    alert('チャットの削除に失敗しました');
+                }
+            } catch (error) {
+                console.error('Failed to delete chat:', error);
+                alert('チャットの削除に失敗しました');
+            }
+        },
+        
+        formatDate(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            
+            if (diffDays === 0) {
+                return '今日';
+            } else if (diffDays === 1) {
+                return '昨日';
+            } else if (diffDays < 7) {
+                return `${diffDays}日前`;
+            } else {
+                return date.toLocaleDateString('ja-JP');
+            }
+        }
+    }
+}
+</script>
+{{end}}

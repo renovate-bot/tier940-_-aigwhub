@@ -1,6 +1,6 @@
 {
   "name": "AI Gateway Hub Dev",
-  "dockerComposeFile": "docker-compose.yml",
+  "dockerComposeFile": "compose.yml",
   "service": "app",
   "workspaceFolder": "/workspace",
   "features": {
@@ -8,7 +8,7 @@
       "version": "1.23"
     },
     "ghcr.io/devcontainers/features/node:1": {
-      "version": "20"
+      "version": "22"
     },
     "ghcr.io/devcontainers/features/docker-in-docker:2": {}
   },
@@ -30,7 +30,7 @@
       }
     }
   },
-  "postCreateCommand": "go mod download && npm install -g @anthropic-ai/claude-cli",
+  "postCreateCommand": "cd /workspace && go mod download && mkdir -p data logs",
   "forwardPorts": [8080, 6379],
   "remoteUser": "vscode"
 }

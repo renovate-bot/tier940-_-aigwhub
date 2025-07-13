@@ -1,10 +1,10 @@
-version: '3.8'
-
 services:
   app:
     build:
       context: .
       dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
     volumes:
       - ..:/workspace:cached
       - /var/run/docker.sock:/var/run/docker.sock
@@ -19,19 +19,21 @@ services:
     depends_on:
       - redis
     networks:
-      - aigwhub
+      - devcontainer
 
   redis:
     image: redis:7.2-alpine
+    ports:
+      - "6379:6379"
     restart: unless-stopped
     volumes:
       - redis_data:/data
     networks:
-      - aigwhub
+      - devcontainer
 
 volumes:
   redis_data:
 
 networks:
-  aigwhub:
+  devcontainer:
     driver: bridge

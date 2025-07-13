@@ -1,0 +1,20 @@
+{{template "layout" .}}
+
+{{define "content"}}
+<div class="max-w-md mx-auto mt-16 text-center">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8">
+        <div class="mb-4">
+            <svg class="w-16 h-16 text-red-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+        </div>
+        
+        <h1 class="text-2xl font-bold mb-2">エラーが発生しました</h1>
+        <p class="text-gray-600 dark:text-gray-400 mb-6">{{.error}}</p>
+        
+        <a href="/" class="inline-block bg-primary text-white font-medium py-2 px-6 rounded-lg hover:bg-primary/90 transition-colors">
+            ホームに戻る
+        </a>
+    </div>
+</div>
+{{end}}
