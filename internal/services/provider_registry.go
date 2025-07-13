@@ -66,15 +66,15 @@ func (r *ProviderRegistry) List() []*models.Provider {
 }
 
 // RegisterDefaultProviders registers the default set of providers
-func (r *ProviderRegistry) RegisterDefaultProviders() error {
+func (r *ProviderRegistry) RegisterDefaultProviders(logDir string) error {
 	// Register Claude provider
-	claudeProvider := providers.NewClaudeProvider("claude", "./logs")
+	claudeProvider := providers.NewClaudeProvider("claude", logDir)
 	if err := r.Register(claudeProvider); err != nil {
 		return fmt.Errorf("failed to register Claude provider: %w", err)
 	}
 
 	// Future: Register Gemini provider
-	// geminiProvider := providers.NewGeminiProvider("gemini", "./logs")
+	// geminiProvider := providers.NewGeminiProvider("gemini", logDir)
 	// if err := r.Register(geminiProvider); err != nil {
 	//     return fmt.Errorf("failed to register Gemini provider: %w", err)
 	// }

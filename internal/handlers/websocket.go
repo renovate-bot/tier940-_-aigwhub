@@ -4,13 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"log"
 	"net/http"
 	"sync"
 	"time"
 
 	"ai-gateway-hub/internal/models"
 	"ai-gateway-hub/internal/services"
+	"ai-gateway-hub/internal/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -69,7 +69,7 @@ func (h *Hub) Run() {
 			h.mu.Lock()
 			h.clients[client] = true
 			h.mu.Unlock()
-			log.Printf("Client registered: %p", client)
+			utils.Debug("Client registered: %p", client)
 
 		case client := <-h.unregister:
 			h.mu.Lock()
@@ -77,7 +77,7 @@ func (h *Hub) Run() {
 				delete(h.clients, client)
 				close(client.send)
 				h.mu.Unlock()
-				log.Printf("Client unregistered: %p", client)
+				utils.Debug("Client unregistered: %p", client)
 			} else {
 				h.mu.Unlock()
 			}
@@ -102,7 +102,7 @@ func WebSocketHandler(hub *Hub) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 		if err != nil {
-			log.Printf("WebSocket upgrade failed: %v", err)
+			utils.Error("WebSocket upgrade failed: %v", err)
 			return
 		}
 
@@ -137,7 +137,7 @@ func (c *Client) readPump() {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("WebSocket error: %v", err)
+				utils.Error("WebSocket error: %v", err)
 			}
 			break
 		}
@@ -145,7 +145,7 @@ func (c *Client) readPump() {
 		// Parse message
 		var msg models.WebSocketMessage
 		if err := json.Unmarshal(message, &msg); err != nil {
-			log.Printf("Failed to parse WebSocket message: %v", err)
+			utils.Error("Failed to parse WebSocket message: %v", err)
 			continue
 		}
 
@@ -156,7 +156,7 @@ func (c *Client) readPump() {
 		case "session_status":
 			c.handleSessionStatus(msg.Data)
 		default:
-			log.Printf("Unknown message type: %s", msg.Type)
+			utils.Warn("Unknown message type: %s", msg.Type)
 		}
 	}
 }
@@ -211,15 +211,15 @@ func (c *Client) handleAIPrompt(data models.WSMsgData) {
 
 	// Save user message
 	if _, err := c.hub.chatService.AddMessage(data.ChatID, "user", data.Content); err != nil {
-		log.Printf("Failed to save user message: %v", err)
+		utils.Error("Failed to save user message: %v", err)
 	}
-
-	// Create context for cancellation
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
 
 	// Stream response
 	go func() {
+		// Create context for cancellation
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+		
 		var responseContent string
 		writer := &websocketWriter{client: c, buffer: &responseContent}
 
@@ -229,10 +229,28 @@ func (c *Client) handleAIPrompt(data models.WSMsgData) {
 			return
 		}
 
+		// Send completion message
+		msg := models.WebSocketMessage{
+			Type: "ai_response",
+			Data: models.WSMsgData{
+				ChatID:    data.ChatID,
+				Provider:  data.Provider,
+				Content:   "",
+				Timestamp: time.Now(),
+				Stream:    false,
+			},
+		}
+		if msgData, err := json.Marshal(msg); err == nil {
+			select {
+			case c.send <- msgData:
+			default:
+			}
+		}
+
 		// Save assistant message
 		if responseContent != "" {
 			if _, err := c.hub.chatService.AddMessage(data.ChatID, "assistant", responseContent); err != nil {
-				log.Printf("Failed to save assistant message: %v", err)
+				utils.Error("Failed to save assistant message: %v", err)
 			}
 		}
 	}()
@@ -260,14 +278,14 @@ func (c *Client) sendError(message string) {
 
 	data, err := json.Marshal(msg)
 	if err != nil {
-		log.Printf("Failed to marshal error message: %v", err)
+		utils.Error("Failed to marshal error message: %v", err)
 		return
 	}
 
 	select {
 	case c.send <- data:
 	default:
-		log.Printf("Failed to send error message to client")
+		utils.Error("Failed to send error message to client")
 	}
 }
 

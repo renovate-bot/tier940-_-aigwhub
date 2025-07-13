@@ -36,7 +36,7 @@ cp ../.env.example .env
 # 特にREDIS_ADDRを適切に設定
 
 # Redisを起動（Dockerを使用する場合）
-docker run -d -p 6379:6379 redis:7.2-alpine
+docker run -p 6379:6379 redis:7.2-alpine
 
 # アプリケーションを起動
 ./ai-gateway-hub

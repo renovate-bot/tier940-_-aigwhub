@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# このスクリプトはDevContainer内で実行されることを前提としています
+# Build AI Gateway Hub in DevContainer
+# Usage: ./scripts/build-in-container.sh (executed inside DevContainer)
 
 set -e
 
@@ -29,5 +30,5 @@ cp .env.example run/.env
 echo "=== Build completed ==="
 echo "The standalone executable is in the 'run' directory"
 echo "To run the application:"
-echo "  1. Start Redis: docker compose -f .devcontainer/compose.yml up -d redis"
+echo "  1. Start Redis service"
 echo "  2. cd run && ./ai-gateway-hub"

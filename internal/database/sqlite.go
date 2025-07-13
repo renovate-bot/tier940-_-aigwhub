@@ -3,17 +3,16 @@ package database
 import (
 	"database/sql"
 	"fmt"
-	"os"
-	"path/filepath"
+
+	"ai-gateway-hub/internal/utils"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
 func InitSQLite(dbPath string) (*sql.DB, error) {
 	// Ensure directory exists
-	dir := filepath.Dir(dbPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create database directory: %w", err)
+	if err := utils.EnsureDirForFile(dbPath); err != nil {
+		return nil, err
 	}
 
 	// Open database connection

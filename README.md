@@ -23,27 +23,29 @@ Modern web interface for using multiple AI CLI tools (Claude Code, Gemini CLI, e
 
 ### Using Standalone Binary
 
-For using pre-built executable:
+**⚠️ Important**: All operations should be performed in the `run/` directory.
 
 ```bash
-# Navigate to run directory
+# Navigate to run directory (required)
 cd run/
 
-# Create .env from example
+# Create .env from example (if not exists)
 cp ../.env.example .env
 
 # Edit .env as needed
 # Especially REDIS_ADDR configuration
 
 # Start Redis (using Docker)
-docker run -d -p 6379:6379 redis:7.2-alpine
+docker run -p 6379:6379 redis:7.2-alpine
 
-# Start application
+# Start application (must be run from run/ directory)
 ./ai-gateway-hub
 
 # Access in browser
 open http://localhost:8080
 ```
+
+> **Note**: The application creates `data/` and `logs/` directories relative to its execution path. Always run from the `run/` directory to keep all runtime files contained.
 
 ### Development Environment (DevContainer)
 
@@ -62,21 +64,24 @@ code .
 /go-stop     # Stop running application
 /go-test     # Test application with browser automation
 
-# Generated files:
+# Generated files in run/ directory:
 # run/
-# ├── ai-gateway-hub    # Executable with embedded resources
-# └── .env             # Environment configuration
+# ├── ai-gateway-hub    # Standalone executable with embedded resources
+# ├── .env             # Environment configuration (copy from .env.example)
+# ├── data/            # SQLite database files (created at runtime)
+# └── logs/            # Application logs (created at runtime)
 ```
 
 ### Build Artifacts
 
-Building in DevContainer generates:
+Building in DevContainer generates files in the `run/` directory:
 
-- `ai-gateway-hub`: Standalone executable with all resources embedded
-- `run/`: Distribution directory
-  - HTML templates and i18n files are embedded in executable
-  - Only external dependency is Redis
-  - Customizable via `.env` file
+- `ai-gateway-hub`: Standalone executable with embedded resources
+- `data/`: SQLite database files (created at runtime)
+- `logs/`: Application logs (created at runtime)
+- `.env`: Configuration file (copy from `.env.example`)
+
+**Important**: All runtime files are contained in `run/` directory. Always execute the application from this directory to ensure proper file organization.
 
 ## 🔒 Security Notice
 
@@ -92,26 +97,6 @@ Building in DevContainer generates:
 - **[README_JP.md](./README_JP.md)** - Japanese version
 - **API Endpoints**: `/api/health` for health checks
 - **WebSocket**: `/ws` for real-time communication
-
-### Claude Code Custom Commands
-
-The `.claude/` directory contains organized custom slash commands:
-
-```
-.claude/
-├── settings.local.json     # Local settings (git-ignored)
-└── commands/              # Shell script-based commands
-    ├── go-build.sh        # Build in DevContainer
-    ├── go-run.sh          # Run in DevContainer
-    ├── go-stop.sh         # Stop application
-    └── go-test.sh         # Browser automation testing
-```
-
-All commands are now in English and include improved artifact management:
-- **go-build**: Cleans previous builds (`rm -rf run`) before creating new artifacts
-- **go-run**: Validates prerequisites and provides clear status messages
-- **go-stop**: Graceful shutdown with fallback to force termination
-- **go-test**: Health checks and browser automation testing
 
 ## 🤝 Contributing
 

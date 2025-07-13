@@ -11,8 +11,8 @@ services:
     environment:
       - REDIS_ADDR=redis:6379
       - PORT=8080
-      - SQLITE_DB_PATH=/workspace/data/ai_gateway.db
-      - LOG_DIR=/workspace/logs
+      - SQLITE_DB_FILE=/workspace/run/data/ai_gateway.db
+      - LOG_DIR=/workspace/run/logs
       - STATIC_DIR=/workspace/web/static
       - TEMPLATE_DIR=/workspace/web/templates
     command: sleep infinity

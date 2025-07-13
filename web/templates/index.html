@@ -4,30 +4,30 @@
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" x-data="chatList()">
     <!-- Hero section -->
     <div class="text-center mb-12">
-        <h1 class="text-4xl font-bold mb-4">{{.T "home.hero.title"}}</h1>
+        <h1 class="text-4xl font-bold mb-4">{{T .lang "home.hero.title"}}</h1>
         <p class="text-xl text-gray-600 dark:text-gray-400">
-            {{.T "home.hero.subtitle"}}
+            {{T .lang "home.hero.subtitle"}}
         </p>
     </div>
     
     <!-- Create new chat -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
-        <h2 class="text-2xl font-semibold mb-4">{{.T "home.newChat.title"}}</h2>
+        <h2 class="text-2xl font-semibold mb-4">{{T .lang "home.newChat.title"}}</h2>
         
         <form @submit.prevent="createChat" class="space-y-4">
             <div>
-                <label class="block text-sm font-medium mb-2">{{.T "home.newChat.chatTitle"}}</label>
+                <label class="block text-sm font-medium mb-2">{{T .lang "home.newChat.chatTitle"}}</label>
                 <input 
                     type="text" 
                     x-model="newChat.title" 
                     class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700"
-                    placeholder="{{.T "home.newChat.chatTitlePlaceholder"}}"
+                    placeholder="{{T .lang "home.newChat.chatTitlePlaceholder"}}"
                     required
                 >
             </div>
             
             <div>
-                <label class="block text-sm font-medium mb-2">{{.T "home.newChat.provider"}}</label>
+                <label class="block text-sm font-medium mb-2">{{T .lang "home.newChat.provider"}}</label>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <template x-for="provider in providers" :key="provider.id">
                         <label class="relative">
@@ -41,7 +41,7 @@
                             <div class="p-4 border-2 rounded-lg cursor-pointer transition-all peer-checked:border-primary peer-checked:bg-primary/10 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed" :class="provider.available ? 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500' : 'border-gray-200 dark:border-gray-700'">
                                 <h3 class="font-semibold" x-text="provider.name"></h3>
                                 <p class="text-sm text-gray-600 dark:text-gray-400" x-text="provider.description"></p>
-                                <span x-show="!provider.available" class="text-xs text-red-500 dark:text-red-400">{{.T "home.newChat.providerUnavailable"}}</span>
+                                <span x-show="!provider.available" class="text-xs text-red-500 dark:text-red-400">{{T .lang "home.newChat.providerUnavailable"}}</span>
                             </div>
                         </label>
                     </template>
@@ -53,18 +53,18 @@
                 :disabled="!newChat.provider || loading"
                 class="w-full bg-primary text-white font-medium py-2 px-4 rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-                <span x-show="!loading">{{.T "home.newChat.submit"}}</span>
-                <span x-show="loading">{{.T "home.newChat.submitting"}}</span>
+                <span x-show="!loading">{{T .lang "home.newChat.submit"}}</span>
+                <span x-show="loading">{{T .lang "home.newChat.submitting"}}</span>
             </button>
         </form>
     </div>
     
     <!-- Recent chats -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-        <h2 class="text-2xl font-semibold mb-4">{{.T "home.recentChats.title"}}</h2>
+        <h2 class="text-2xl font-semibold mb-4">{{T .lang "home.recentChats.title"}}</h2>
         
         <div x-show="chats.length === 0" class="text-center py-8 text-gray-500 dark:text-gray-400">
-            {{.T "home.recentChats.empty"}}
+            {{T .lang "home.recentChats.empty"}}
         </div>
         
         <div x-show="chats.length > 0" class="space-y-3">
@@ -81,7 +81,7 @@
                     <button 
                         @click="deleteChat(chat.id)" 
                         class="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                        :title="'{{.T "home.recentChats.delete"}}'"
+                        :title="'{{T .lang "home.recentChats.delete"}}'"
                     >
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
@@ -152,18 +152,18 @@ function chatList() {
                     const chat = await response.json();
                     window.location.href = `/chat/${chat.id}`;
                 } else {
-                    alert('{{.T "error.failedToCreateChat"}}');
+                    alert('{{T .lang "error.failedToCreateChat"}}');
                 }
             } catch (error) {
                 console.error('Failed to create chat:', error);
-                alert('{{.T "error.failedToCreateChat"}}');
+                alert('{{T .lang "error.failedToCreateChat"}}');
             } finally {
                 this.loading = false;
             }
         },
         
         async deleteChat(id) {
-            if (!confirm('{{.T "home.recentChats.confirmDelete"}}')) return;
+            if (!confirm('{{T .lang "home.recentChats.confirmDelete"}}')) return;
             
             try {
                 const response = await fetch(`/api/chats/${id}`, {
@@ -173,11 +173,11 @@ function chatList() {
                 if (response.ok) {
                     this.chats = this.chats.filter(c => c.id !== id);
                 } else {
-                    alert('{{.T "error.failedToDeleteChat"}}');
+                    alert('{{T .lang "error.failedToDeleteChat"}}');
                 }
             } catch (error) {
                 console.error('Failed to delete chat:', error);
-                alert('{{.T "error.failedToDeleteChat"}}');
+                alert('{{T .lang "error.failedToDeleteChat"}}');
             }
         },
         
@@ -188,11 +188,11 @@ function chatList() {
             const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
             
             if (diffDays === 0) {
-                return '{{.T "time.today"}}';
+                return '{{T .lang "time.today"}}';
             } else if (diffDays === 1) {
-                return '{{.T "time.yesterday"}}';
+                return '{{T .lang "time.yesterday"}}';
             } else if (diffDays < 7) {
-                return `{{.T "time.daysAgo"}}`.replace('%d', diffDays);
+                return `{{T .lang "time.daysAgo"}}`.replace('%d', diffDays);
             } else {
                 return date.toLocaleDateString();
             }

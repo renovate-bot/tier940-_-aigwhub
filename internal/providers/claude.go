@@ -5,10 +5,10 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
-	"path/filepath"
+
+	"ai-gateway-hub/internal/utils"
 )
 
 // ClaudeProvider implements the AIProvider interface for Claude CLI
@@ -40,26 +40,26 @@ func (p *ClaudeProvider) GetDescription() string {
 func (p *ClaudeProvider) IsAvailable() bool {
 	// Check if claude CLI is available
 	cmd := exec.Command(p.cliPath, "--version")
+	cmd.Env = os.Environ()
 	err := cmd.Run()
 	return err == nil
 }
 
 func (p *ClaudeProvider) SendPrompt(ctx context.Context, prompt string, chatID int64) (io.ReadCloser, error) {
 	// Create log file for this chat
-	logPath := filepath.Join(p.logDir, "claude", fmt.Sprintf("chat_%d.log", chatID))
-	if err := os.MkdirAll(filepath.Dir(logPath), 0755); err != nil {
-		return nil, fmt.Errorf("failed to create log directory: %w", err)
-	}
-
-	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	logPath := fmt.Sprintf("%s/claude/chat_%d.log", p.logDir, chatID)
+	logFile, err := utils.CreateFile(logPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open log file: %w", err)
+		return nil, err
 	}
 	defer logFile.Close()
 
 	// Execute claude CLI
 	cmd := exec.CommandContext(ctx, p.cliPath, "chat", "--no-stream")
 	cmd.Stdin = bytes.NewReader([]byte(prompt))
+	
+	// Inherit environment variables including PATH and HOME for Claude auth
+	cmd.Env = os.Environ()
 	
 	// Log the prompt
 	fmt.Fprintf(logFile, "USER: %s\n", prompt)
@@ -85,14 +85,10 @@ func (p *ClaudeProvider) SendPrompt(ctx context.Context, prompt string, chatID i
 
 func (p *ClaudeProvider) StreamResponse(ctx context.Context, prompt string, chatID int64, writer io.Writer) error {
 	// Create log file for this chat
-	logPath := filepath.Join(p.logDir, "claude", fmt.Sprintf("chat_%d.log", chatID))
-	if err := os.MkdirAll(filepath.Dir(logPath), 0755); err != nil {
-		return fmt.Errorf("failed to create log directory: %w", err)
-	}
-
-	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	logPath := fmt.Sprintf("%s/claude/chat_%d.log", p.logDir, chatID)
+	logFile, err := utils.CreateFile(logPath)
 	if err != nil {
-		return fmt.Errorf("failed to open log file: %w", err)
+		return err
 	}
 	defer logFile.Close()
 
@@ -100,20 +96,37 @@ func (p *ClaudeProvider) StreamResponse(ctx context.Context, prompt string, chat
 	cmd := exec.CommandContext(ctx, p.cliPath, "chat")
 	cmd.Stdin = bytes.NewReader([]byte(prompt))
 	
+	// Inherit environment variables including PATH and HOME for Claude auth
+	cmd.Env = os.Environ()
+	
 	// Log the prompt
 	fmt.Fprintf(logFile, "USER: %s\n", prompt)
 	fmt.Fprintf(logFile, "ASSISTANT: ")
 
-	// Get stdout pipe
+	// Get stdout and stderr pipes
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return fmt.Errorf("failed to get stdout pipe: %w", err)
+	}
+	
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return fmt.Errorf("failed to get stderr pipe: %w", err)
 	}
 
 	// Start the command
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start claude CLI: %w", err)
 	}
+	
+	// Log any errors
+	go func() {
+		stderrBytes, _ := io.ReadAll(stderr)
+		if len(stderrBytes) > 0 {
+			utils.Error("Claude CLI stderr: %s", string(stderrBytes))
+			fmt.Fprintf(logFile, "\nERROR: %s\n", string(stderrBytes))
+		}
+	}()
 
 	// Create multi-writer to write to both output and log
 	multiWriter := io.MultiWriter(writer, logFile)
@@ -160,7 +173,7 @@ func (lr *loggingReader) Close() error {
 	// Wait for command to finish
 	if lr.cmd != nil {
 		if err := lr.cmd.Wait(); err != nil {
-			log.Printf("Claude CLI wait error: %v", err)
+			utils.Error("Claude CLI wait error: %v", err)
 		}
 	}
 	

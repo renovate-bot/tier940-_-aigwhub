@@ -1,17 +1,19 @@
 package config
 
 import (
-	"os"
-	"strconv"
+	"strings"
 	"time"
+
+	"github.com/spf13/viper"
 )
 
+// Config holds all configuration for the application
 type Config struct {
 	// Server settings
 	Port string
 
-	// Database paths
-	SQLiteDBPath string
+	// Database settings
+	SQLiteDBFile string
 	RedisAddr    string
 
 	// Static files
@@ -36,49 +38,102 @@ type Config struct {
 	EnableHealthChecks          bool
 }
 
+// Load initializes and loads configuration from various sources
 func Load() *Config {
+	// Set configuration name and type
+	viper.SetConfigName(".env")
+	viper.SetConfigType("env")
+	
+	// Add config path
+	viper.AddConfigPath(".")
+	
+	// Set default values
+	setDefaults()
+	
+	// Enable environment variable reading
+	viper.AutomaticEnv()
+	
+	// Read configuration file if it exists
+	if err := viper.ReadInConfig(); err != nil {
+		// Config file not found or error reading - use defaults and env vars
+	}
+	
 	return &Config{
-		Port:         getEnv("PORT", "8080"),
-		SQLiteDBPath: getEnv("SQLITE_DB_PATH", "./data/ai_gateway.db"),
-		RedisAddr:    getEnv("REDIS_ADDR", "localhost:6379"),
-		StaticDir:    getEnv("STATIC_DIR", "./web/static"),
-		TemplateDir:  getEnv("TEMPLATE_DIR", "./web/templates"),
-		LogDir:       getEnv("LOG_DIR", "./logs"),
-		LogLevel:     getEnv("LOG_LEVEL", "info"),
+		Port:         viper.GetString("PORT"),
+		SQLiteDBFile: viper.GetString("SQLITE_DB_FILE"),
+		RedisAddr:    viper.GetString("REDIS_ADDR"),
+		StaticDir:    viper.GetString("STATIC_DIR"),
+		TemplateDir:  viper.GetString("TEMPLATE_DIR"),
+		LogDir:       viper.GetString("LOG_DIR"),
+		LogLevel:     viper.GetString("LOG_LEVEL"),
 
-		MaxSessions:      getEnvAsInt("MAX_SESSIONS", 100),
-		SessionTimeout:   time.Duration(getEnvAsInt("SESSION_TIMEOUT", 3600)) * time.Second,
-		WebSocketTimeout: time.Duration(getEnvAsInt("WEBSOCKET_TIMEOUT", 7200)) * time.Second,
+		MaxSessions:      viper.GetInt("MAX_SESSIONS"),
+		SessionTimeout:   time.Duration(viper.GetInt("SESSION_TIMEOUT")) * time.Second,
+		WebSocketTimeout: time.Duration(viper.GetInt("WEBSOCKET_TIMEOUT")) * time.Second,
 
-		ClaudeCLIPath: getEnv("CLAUDE_CLI_PATH", "claude"),
-		GeminiCLIPath: getEnv("GEMINI_CLI_PATH", "gemini"),
+		ClaudeCLIPath: viper.GetString("CLAUDE_CLI_PATH"),
+		GeminiCLIPath: viper.GetString("GEMINI_CLI_PATH"),
 
-		EnableProviderAutoDiscovery: getEnvAsBool("ENABLE_PROVIDER_AUTO_DISCOVERY", true),
-		EnableHealthChecks:          getEnvAsBool("ENABLE_HEALTH_CHECKS", true),
+		EnableProviderAutoDiscovery: viper.GetBool("ENABLE_PROVIDER_AUTO_DISCOVERY"),
+		EnableHealthChecks:          viper.GetBool("ENABLE_HEALTH_CHECKS"),
 	}
 }
 
-func getEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
+// setDefaults sets default configuration values
+func setDefaults() {
+	// Server Configuration
+	viper.SetDefault("PORT", "8080")
+	viper.SetDefault("SQLITE_DB_FILE", "./data/ai_gateway.db")
+	viper.SetDefault("REDIS_ADDR", "localhost:6379")
+	viper.SetDefault("STATIC_DIR", "./web/static")
+	viper.SetDefault("TEMPLATE_DIR", "./web/templates")
+	
+	// Logging Configuration
+	viper.SetDefault("LOG_DIR", "./logs")
+	viper.SetDefault("LOG_LEVEL", "info")
+	
+	// Session Management
+	viper.SetDefault("MAX_SESSIONS", 100)
+	viper.SetDefault("SESSION_TIMEOUT", 3600)
+	viper.SetDefault("WEBSOCKET_TIMEOUT", 7200)
+	
+	// AI Provider Configuration
+	viper.SetDefault("CLAUDE_CLI_PATH", "claude")
+	viper.SetDefault("GEMINI_CLI_PATH", "gemini")
+	
+	// Feature Flags
+	viper.SetDefault("ENABLE_PROVIDER_AUTO_DISCOVERY", true)
+	viper.SetDefault("ENABLE_HEALTH_CHECKS", true)
 }
 
-func getEnvAsInt(key string, defaultValue int) int {
-	if value := os.Getenv(key); value != "" {
-		if intVal, err := strconv.Atoi(value); err == nil {
-			return intVal
-		}
-	}
-	return defaultValue
+// GetString returns a configuration value as string with environment variable support
+func GetString(key string) string {
+	return viper.GetString(key)
 }
 
-func getEnvAsBool(key string, defaultValue bool) bool {
-	if value := os.Getenv(key); value != "" {
-		if boolVal, err := strconv.ParseBool(value); err == nil {
-			return boolVal
-		}
-	}
-	return defaultValue
+// GetInt returns a configuration value as int with environment variable support
+func GetInt(key string) int {
+	return viper.GetInt(key)
 }
+
+// GetBool returns a configuration value as bool with environment variable support
+func GetBool(key string) bool {
+	return viper.GetBool(key)
+}
+
+// SetConfigPath adds an additional path to search for config files
+func SetConfigPath(path string) {
+	viper.AddConfigPath(path)
+}
+
+// IsProduction returns true if the application is running in production mode
+func IsProduction() bool {
+	env := strings.ToLower(viper.GetString("GIN_MODE"))
+	return env == "release" || env == "production"
+}
+
+// IsDevelopment returns true if the application is running in development mode
+func IsDevelopment() bool {
+	return !IsProduction()
+}
+

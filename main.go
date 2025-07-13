@@ -18,6 +18,7 @@ import (
 	"ai-gateway-hub/internal/i18n"
 	"ai-gateway-hub/internal/middleware"
 	"ai-gateway-hub/internal/services"
+	"ai-gateway-hub/internal/utils"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -30,8 +31,16 @@ var templateFiles embed.FS
 //go:embed locales/*/*.json
 var localeFiles embed.FS
 
+//go:embed .env.example
+var envExampleFile embed.FS
+
 func main() {
-	// Load .env file if exists
+	// Initialize path manager first
+	if err := utils.InitPathManager(); err != nil {
+		log.Fatalf("Failed to initialize path manager: %v", err)
+	}
+
+	// Load .env file if exists to get log configuration early
 	if err := godotenv.Load(); err != nil {
 		log.Printf("No .env file found or failed to load: %v", err)
 	}
@@ -39,15 +48,33 @@ func main() {
 	// Load configuration
 	cfg := config.Load()
 
-	// Initialize i18n with embedded files
-	if err := i18n.InitWithFS(localeFiles, "en"); err != nil {
-		log.Printf("Warning: Failed to initialize i18n: %v. Using default strings.", err)
+	// Initialize logging early
+	utils.InitLogger(cfg.LogLevel)
+	
+	// Initialize file logging
+	if err := utils.InitFileLogging(cfg.LogDir); err != nil {
+		log.Printf("Warning: Failed to initialize file logging: %v", err)
+	} else {
+		// Redirect standard log package to our custom logger
+		utils.SetAsDefaultLogger()
+	}
+	
+	utils.Info("AI Gateway Hub starting with log level: %s", cfg.LogLevel)
+
+	// Initialize i18n first - extract files if needed and initialize once
+	if err := initializeI18n(); err != nil {
+		utils.Warn("Failed to initialize i18n: %v. Using default strings.", err)
+	}
+
+	// Extract .env.example (always update)
+	if err := extractEnvExample(); err != nil {
+		utils.Warn("Failed to extract .env.example: %v", err)
 	}
 
 	// Initialize database
-	db, err := database.InitSQLite(cfg.SQLiteDBPath)
+	db, err := database.InitSQLite(cfg.SQLiteDBFile)
 	if err != nil {
-		log.Fatalf("Failed to initialize SQLite: %v", err)
+		utils.Fatal("Failed to initialize SQLite: %v", err)
 	}
 	defer db.Close()
 
@@ -61,9 +88,12 @@ func main() {
 	providerRegistry := services.NewProviderRegistry()
 	
 	// Register providers
-	if err := providerRegistry.RegisterDefaultProviders(); err != nil {
-		log.Printf("Warning: Failed to register default providers: %v", err)
+	if err := providerRegistry.RegisterDefaultProviders(cfg.LogDir); err != nil {
+		utils.Warn("Failed to register default providers: %v", err)
 	}
+
+	// Setup logging level and Gin mode based on configuration
+	setupLogging(cfg.LogLevel)
 
 	// Initialize Gin router
 	router := gin.Default()
@@ -89,7 +119,19 @@ func main() {
 		log.Fatalf("Failed to create template file system: %v", err)
 	}
 	
-	tmpl := template.Must(template.New("").ParseFS(templateFS, "*.html"))
+	// Create template with functions - language will be passed via template data
+	tmpl := template.New("").Funcs(template.FuncMap{
+		"T": func(lang interface{}, key string, args ...interface{}) string {
+			langStr := "en"
+			if lang != nil {
+				if l, ok := lang.(string); ok && l != "" {
+					langStr = l
+				}
+			}
+			return i18n.T(langStr, key, args...)
+		},
+	})
+	tmpl = template.Must(tmpl.ParseFS(templateFS, "*.html"))
 	router.SetHTMLTemplate(tmpl)
 
 	// Initialize WebSocket hub
@@ -113,11 +155,8 @@ func main() {
 	// WebSocket endpoint
 	router.GET("/ws", handlers.WebSocketHandler(hub))
 
-	// Get port from environment or use default
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
+	// Get port from configuration
+	port := cfg.Port
 
 	// Create HTTP server with graceful shutdown support
 	srv := &http.Server{
@@ -127,9 +166,9 @@ func main() {
 
 	// Start server in a goroutine
 	go func() {
-		log.Printf("Starting AI Gateway Hub on port %s", port)
+		utils.Info("Starting AI Gateway Hub on port %s", port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Failed to start server: %v", err)
+			utils.Fatal("Failed to start server: %v", err)
 		}
 	}()
 
@@ -137,15 +176,115 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	log.Println("Shutting down server...")
+	utils.Info("Shutting down server...")
 
 	// Give the server 30 seconds to finish handling requests
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
+		utils.Fatal("Server forced to shutdown: %v", err)
 	}
 
-	log.Println("Server exited")
+	utils.Info("Server exited")
+}
+
+// setupLogging configures Gin mode based on log level
+func setupLogging(logLevel string) {
+	switch logLevel {
+	case "debug":
+		utils.Debug("Setting Gin to debug mode")
+		gin.SetMode(gin.DebugMode)
+	case "info":
+		utils.Debug("Setting Gin to release mode")
+		gin.SetMode(gin.ReleaseMode)
+	case "warn", "warning":
+		utils.Debug("Setting Gin to release mode")
+		gin.SetMode(gin.ReleaseMode)
+	case "error":
+		utils.Debug("Setting Gin to release mode")
+		gin.SetMode(gin.ReleaseMode)
+	default:
+		utils.Warn("Unknown log level '%s', defaulting to INFO", logLevel)
+		gin.SetMode(gin.ReleaseMode)
+	}
+}
+
+// initializeI18n initializes i18n system with local files if they exist, otherwise embedded files
+func initializeI18n() error {
+	// Check if local locales directory exists and has files
+	if _, err := os.Stat("locales/en/messages.json"); err == nil {
+		// Use local files
+		utils.Info("Using local i18n files from locales/ directory")
+		return i18n.Init("locales", "en")
+	} else {
+		// Extract i18n files first, then use local files
+		utils.Info("Extracting i18n files for customization")
+		if err := extractI18nFiles(); err != nil {
+			utils.Warn("Failed to extract i18n files, using embedded: %v", err)
+			return i18n.InitWithFS(localeFiles, "en")
+		}
+		// Now use the extracted local files
+		utils.Info("Using extracted i18n files from locales/ directory")
+		return i18n.Init("locales", "en")
+	}
+}
+
+
+// extractEnvExample extracts .env.example file (always overwrites)
+func extractEnvExample() error {
+	content, err := envExampleFile.ReadFile(".env.example")
+	if err != nil {
+		return err
+	}
+
+	if err := os.WriteFile(".env.example", content, 0644); err != nil {
+		return err
+	}
+
+	utils.Info("Extracted .env.example for configuration reference")
+	return nil
+}
+
+// extractI18nFiles extracts i18n files for user modification (only if they don't exist)
+func extractI18nFiles() error {
+	// Create locales directory if it doesn't exist
+	if err := utils.EnsureDir("locales"); err != nil {
+		return err
+	}
+
+	// Walk through embedded locale files
+	return fs.WalkDir(localeFiles, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if d.IsDir() {
+			// Create directory
+			if err := utils.EnsureDir(path); err != nil {
+				return err
+			}
+			return nil
+		}
+
+		// Check if file already exists (don't overwrite user modifications)
+		localPath := path
+		if _, err := os.Stat(localPath); err == nil {
+			// File exists, skip extraction
+			return nil
+		}
+
+		// Extract file
+		content, err := localeFiles.ReadFile(path)
+		if err != nil {
+			return err
+		}
+
+		if err := utils.WriteToFile(localPath, content); err != nil {
+			return err
+		}
+
+		utils.Info("Extracted i18n file: %s", localPath)
+		return nil
+	})
 }

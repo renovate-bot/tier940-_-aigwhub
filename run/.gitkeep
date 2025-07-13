@@ -1,0 +1,5 @@
+# This directory contains runtime files for AI Gateway Hub
+# - ai-gateway-hub: The compiled binary
+# - data/: SQLite database files
+# - logs/: Application logs
+# - .env: Runtime configuration (copy from .env.example)

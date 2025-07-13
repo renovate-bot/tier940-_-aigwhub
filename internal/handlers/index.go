@@ -9,11 +9,10 @@ import (
 // IndexHandler handles the home page
 func IndexHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		t := GetTranslator(c)
+		lang := GetLang(c)
 		c.HTML(http.StatusOK, "index.html", gin.H{
-			"title": t("app.title"),
-			"t":     t,
-			"lang":  GetLang(c),
+			"title": "AI Gateway Hub", // Will be translated in template using T function
+			"lang":  lang,
 		})
 	}
 }

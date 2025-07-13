@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Stop running Go application in DevContainer
-# Usage: /go-stop
+# Usage: ./scripts/go-stop.sh
 
 set -e
 
@@ -58,5 +58,5 @@ fi
 
 echo ""
 echo "🎯 Next steps:"
-echo "  - Use /go-build to rebuild"
-echo "  - Use /go-run to restart"
+echo "  - Use ./scripts/go-build.sh to rebuild"
+echo "  - Use ./scripts/go-run.sh to restart"

@@ -4,7 +4,6 @@
 *.dll
 *.so
 *.dylib
-ai-gateway-hub
 
 # Test binary, built with `go test -c`
 *.test
@@ -41,20 +40,27 @@ ehthumbs.db
 Thumbs.db
 
 # Application specific
-/data/
-/logs/
-/claude-config/
-/run/
-!run/README.md
+# All runtime files should be in /run/
+/run/*
+!run/.gitkeep
+!run/data/
+!run/data/.gitkeep
+!run/logs/
+!run/logs/.gitkeep
+
+# Runtime files (should not exist in project root)
 *.db
 *.db-journal
 *.log
+
+# Binary in root (if accidentally built there)
+/ai-gateway-hub
 
 # Environment files
 .env
 .env.local
 .env.*.local
-!.env.example
+/!.env.example
 
 # Temporary files
 *.tmp
@@ -70,6 +76,9 @@ __debug_bin
 # Build artifacts
 /dist/
 /build/
+
+# Web static files (using CDN)
+web/static/
 
 # Coverage reports
 coverage.txt

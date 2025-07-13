@@ -199,7 +199,7 @@ cd ai-gateway-hub
 go mod download
 
 # Redisを起動（Dockerの場合）
-docker run -d -p 6379:6379 redis:7.2-alpine
+docker run -p 6379:6379 redis:7.2-alpine
 
 # データ・ログディレクトリを作成
 mkdir -p ./data ./logs
@@ -251,7 +251,7 @@ require (
 ```
 
 ### Node.js依存関係
-- `@anthropic-ai/claude-code` - Claude CLI
+- `@anthropic-ai/claude` - Claude CLI
 
 ## 🔒 セキュリティ考慮事項
 

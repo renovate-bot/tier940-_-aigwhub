@@ -1,36 +1,67 @@
-{{template "layout" .}}
-
-{{define "head"}}
-<style>
-    .message-content {
-        white-space: pre-wrap;
-        word-wrap: break-word;
-    }
-    .typing-indicator {
-        display: inline-flex;
-        align-items: center;
-    }
-    .typing-indicator span {
-        height: 8px;
-        width: 8px;
-        background-color: #9CA3AF;
-        border-radius: 50%;
-        display: inline-block;
-        margin: 0 2px;
-        animation: typing 1.4s infinite;
-    }
-    .typing-indicator span:nth-child(1) { animation-delay: 0s; }
-    .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
-    .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
-    @keyframes typing {
-        0%, 60%, 100% { opacity: 0.3; }
-        30% { opacity: 1; }
-    }
-</style>
-{{end}}
-
-{{define "content"}}
-<div class="max-w-4xl mx-auto h-screen flex flex-col" x-data="chatInterface()">
+<!DOCTYPE html>
+<html lang="ja" x-data="{ darkMode: localStorage.getItem('darkMode') === 'true' }" x-init="$watch('darkMode', val => localStorage.setItem('darkMode', val))" :class="{ 'dark': darkMode }">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.title}} - {{T .lang "app.title"}}</title>
+    
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.0/dist/cdn.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#10B981',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Custom styles -->
+    <style>
+        [x-cloak] { display: none !important; }
+        .scrollbar-thin::-webkit-scrollbar { width: 6px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: #f1f1f1; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: #888; border-radius: 3px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: #555; }
+        .dark .scrollbar-thin::-webkit-scrollbar-track { background: #374151; }
+        .dark .scrollbar-thin::-webkit-scrollbar-thumb { background: #6B7280; }
+        
+        .message-content {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .typing-indicator {
+            display: inline-flex;
+            align-items: center;
+        }
+        .typing-indicator span {
+            height: 8px;
+            width: 8px;
+            background-color: #9CA3AF;
+            border-radius: 50%;
+            display: inline-block;
+            margin: 0 2px;
+            animation: typing 1.4s infinite;
+        }
+        .typing-indicator span:nth-child(1) { animation-delay: 0s; }
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing {
+            0%, 60%, 100% { opacity: 0.3; }
+            30% { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+<div class="min-h-screen flex flex-col" x-data="chatInterface()">
     <!-- Chat header -->
     <div class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 px-4 py-3">
         <div class="flex items-center justify-between">
@@ -49,11 +80,11 @@
             <div class="flex items-center space-x-2">
                 <span x-show="connected" class="flex items-center text-sm text-green-600 dark:text-green-400">
                     <span class="w-2 h-2 bg-green-600 dark:bg-green-400 rounded-full mr-1"></span>
-                    {{.T "chat.connected"}}
+                    {{T .lang "chat.connected"}}
                 </span>
                 <span x-show="!connected" class="flex items-center text-sm text-red-600 dark:text-red-400">
                     <span class="w-2 h-2 bg-red-600 dark:bg-red-400 rounded-full mr-1"></span>
-                    {{.T "chat.disconnected"}}
+                    {{T .lang "chat.disconnected"}}
                 </span>
             </div>
         </div>
@@ -66,7 +97,7 @@
         <div class="flex {{if eq .Role "user"}}justify-end{{else}}justify-start{{end}}">
             <div class="max-w-3xl {{if eq .Role "user"}}bg-primary text-white{{else}}bg-gray-100 dark:bg-gray-700{{end}} rounded-lg px-4 py-2">
                 <div class="text-xs {{if eq .Role "user"}}text-blue-100{{else}}text-gray-500 dark:text-gray-400{{end}} mb-1">
-                    {{if eq .Role "user"}}{{$.T "chat.you"}}{{else}}{{$.chat.Provider}}{{end}}
+                    {{if eq .Role "user"}}{{T $.lang "chat.you"}}{{else}}{{$.chat.Provider}}{{end}}
                 </div>
                 <div class="message-content">{{.Content}}</div>
             </div>
@@ -78,7 +109,7 @@
             <div class="flex" :class="message.role === 'user' ? 'justify-end' : 'justify-start'">
                 <div class="max-w-3xl rounded-lg px-4 py-2" :class="message.role === 'user' ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-700'">
                     <div class="text-xs mb-1" :class="message.role === 'user' ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'">
-                        <span x-text="message.role === 'user' ? '{{.T "chat.you"}}' : '{{.chat.Provider}}'"></span>
+                        <span x-text="message.role === 'user' ? '{{T .lang "chat.you"}}' : '{{.chat.Provider}}'"></span>
                     </div>
                     <div class="message-content" x-text="message.content"></div>
                 </div>
@@ -106,7 +137,7 @@
                 @keydown.enter.prevent="if (!$event.shiftKey) sendMessage()"
                 class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg resize-none focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700"
                 rows="3"
-                placeholder="{{.T "chat.messagePlaceholder"}}"
+                placeholder="{{T .lang "chat.messagePlaceholder"}}"
                 :disabled="!connected || isTyping"
             ></textarea>
             
@@ -115,14 +146,11 @@
                 :disabled="!connected || !newMessage.trim() || isTyping"
                 class="px-6 py-2 bg-primary text-white font-medium rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors self-end"
             >
-                {{.T "chat.send"}}
+                {{T .lang "chat.send"}}
             </button>
         </form>
     </div>
 </div>
-{{end}}
-
-{{define "scripts"}}
 <script>
 function chatInterface() {
     return {
@@ -223,7 +251,7 @@ function chatInterface() {
                     
                 case 'error':
                     this.isTyping = false;
-                    alert(`{{.T "error.websocketError"}}: ${message.data.content}`);
+                    alert(`{{T .lang "error.websocketError"}}: ${message.data.content}`);
                     break;
             }
         },
@@ -268,4 +296,6 @@ function chatInterface() {
     }
 }
 </script>
-{{end}}
+    </div>
+</body>
+</html>

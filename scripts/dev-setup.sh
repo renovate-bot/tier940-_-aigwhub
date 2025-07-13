@@ -27,7 +27,7 @@ go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
 # Install Claude CLI
 echo "🤖 Installing Claude CLI..."
-npm install -g @anthropic-ai/claude-code
+npm install -g @anthropic-ai/claude
 
 echo "✅ Development environment setup complete!"
 echo ""
