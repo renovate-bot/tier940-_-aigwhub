@@ -33,6 +33,10 @@ type Config struct {
 	ClaudeCLIPath string
 	GeminiCLIPath string
 
+	// Claude CLI Options
+	ClaudeSkipPermissions bool
+	ClaudeExtraArgs       string
+
 	// Feature flags
 	EnableProviderAutoDiscovery bool
 	EnableHealthChecks          bool
@@ -74,6 +78,9 @@ func Load() *Config {
 		ClaudeCLIPath: viper.GetString("CLAUDE_CLI_PATH"),
 		GeminiCLIPath: viper.GetString("GEMINI_CLI_PATH"),
 
+		ClaudeSkipPermissions: viper.GetBool("CLAUDE_SKIP_PERMISSIONS"),
+		ClaudeExtraArgs:       viper.GetString("CLAUDE_EXTRA_ARGS"),
+
 		EnableProviderAutoDiscovery: viper.GetBool("ENABLE_PROVIDER_AUTO_DISCOVERY"),
 		EnableHealthChecks:          viper.GetBool("ENABLE_HEALTH_CHECKS"),
 	}
@@ -100,6 +107,10 @@ func setDefaults() {
 	// AI Provider Configuration
 	viper.SetDefault("CLAUDE_CLI_PATH", "claude")
 	viper.SetDefault("GEMINI_CLI_PATH", "gemini")
+	
+	// Claude CLI Options
+	viper.SetDefault("CLAUDE_SKIP_PERMISSIONS", false)
+	viper.SetDefault("CLAUDE_EXTRA_ARGS", "")
 	
 	// Feature Flags
 	viper.SetDefault("ENABLE_PROVIDER_AUTO_DISCOVERY", true)

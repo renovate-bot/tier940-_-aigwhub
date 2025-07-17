@@ -1,0 +1,82 @@
+name: Claude Review - Go Files
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    paths:
+      # Only run when Go-specific files are modified
+      - "**/*.go"
+      - "go.mod"
+      - "go.sum"
+      - "internal/**"
+      - "scripts/*.sh"
+      - "Dockerfile"
+
+jobs:
+  claude-review-go:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Claude Go Code Review
+        uses: anthropics/claude-code-action@beta
+        with:
+          # Use OAuth token (recommended) or API key
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          
+          timeout_minutes: "60"
+          
+          direct_prompt: |
+            Please review this Go pull request with extra attention to Go-specific concerns.
+            
+            This PR touches critical Go source code. Please thoroughly review:
+            
+            **Go-Specific Checks:**
+            - Idiomatic Go code patterns and conventions
+            - Proper error handling (error wrapping, nil checks)
+            - Context usage and cancellation
+            - Goroutine leaks and proper cleanup
+            - Channel usage and potential deadlocks
+            - Race conditions (suggest where sync primitives might be needed)
+            - Proper use of defer for cleanup
+            - Interface design and composition
+            - Effective use of Go's type system
+            
+            **Performance & Memory:**
+            - Memory allocations and potential optimizations
+            - Proper use of pointers vs values
+            - Slice/map pre-allocation where beneficial
+            - Connection pooling for databases/HTTP clients
+            
+            **Testing:**
+            - Test coverage for new functions
+            - Table-driven tests where appropriate
+            - Proper test isolation
+            - Benchmark tests for performance-critical code
+            
+            **Dependencies:**
+            - Check go.mod for unnecessary dependencies
+            - Verify dependency versions are appropriate
+            - Flag any security concerns with dependencies
+            
+            Since this PR modifies Go code paths, please be thorough in your review
+            and provide inline comments where appropriate. Focus on Go best practices
+            and potential runtime issues.
+
+          # Allow Claude to run Go-specific commands
+          # allowed_tools: |
+          #   Bash(go build ./...)
+          #   Bash(go test -race ./...)
+          #   Bash(go vet ./...)
+          #   Bash(go fmt ./...)
+          #   Bash(golangci-lint run)
+          #   Bash(go mod tidy)
+          #   Bash(go mod verify)

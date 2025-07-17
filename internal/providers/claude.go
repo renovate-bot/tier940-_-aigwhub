@@ -7,21 +7,26 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 
 	"ai-gateway-hub/internal/utils"
 )
 
 // ClaudeProvider implements the AIProvider interface for Claude CLI
 type ClaudeProvider struct {
-	cliPath string
-	logDir  string
+	cliPath         string
+	logDir          string
+	skipPermissions bool
+	extraArgs       string
 }
 
 // NewClaudeProvider creates a new Claude provider instance
-func NewClaudeProvider(cliPath, logDir string) *ClaudeProvider {
+func NewClaudeProvider(cliPath, logDir string, skipPermissions bool, extraArgs string) *ClaudeProvider {
 	return &ClaudeProvider{
-		cliPath: cliPath,
-		logDir:  logDir,
+		cliPath:         cliPath,
+		logDir:          logDir,
+		skipPermissions: skipPermissions,
+		extraArgs:       extraArgs,
 	}
 }
 
@@ -45,6 +50,28 @@ func (p *ClaudeProvider) IsAvailable() bool {
 	return err == nil
 }
 
+// buildArgs constructs the command arguments based on provider configuration
+func (p *ClaudeProvider) buildArgs(baseArgs ...string) []string {
+	args := make([]string, 0)
+	
+	// Add base arguments
+	args = append(args, baseArgs...)
+	
+	// Add skip permissions flag if enabled
+	if p.skipPermissions {
+		args = append(args, "--dangerously-skip-permissions")
+	}
+	
+	// Add extra arguments if provided
+	if p.extraArgs != "" {
+		// Split extra args by space, respecting quoted strings
+		extraArgsList := strings.Fields(p.extraArgs)
+		args = append(args, extraArgsList...)
+	}
+	
+	return args
+}
+
 func (p *ClaudeProvider) SendPrompt(ctx context.Context, prompt string, chatID int64) (io.ReadCloser, error) {
 	// Create log file for this chat
 	logPath := fmt.Sprintf("%s/claude/chat_%d.log", p.logDir, chatID)
@@ -55,7 +82,8 @@ func (p *ClaudeProvider) SendPrompt(ctx context.Context, prompt string, chatID i
 	defer logFile.Close()
 
 	// Execute claude CLI
-	cmd := exec.CommandContext(ctx, p.cliPath, "chat", "--no-stream")
+	args := p.buildArgs("chat", "--no-stream")
+	cmd := exec.CommandContext(ctx, p.cliPath, args...)
 	cmd.Stdin = bytes.NewReader([]byte(prompt))
 	
 	// Inherit environment variables including PATH and HOME for Claude auth
@@ -93,7 +121,8 @@ func (p *ClaudeProvider) StreamResponse(ctx context.Context, prompt string, chat
 	defer logFile.Close()
 
 	// Execute claude CLI with streaming
-	cmd := exec.CommandContext(ctx, p.cliPath, "chat")
+	args := p.buildArgs("chat")
+	cmd := exec.CommandContext(ctx, p.cliPath, args...)
 	cmd.Stdin = bytes.NewReader([]byte(prompt))
 	
 	// Inherit environment variables including PATH and HOME for Claude auth

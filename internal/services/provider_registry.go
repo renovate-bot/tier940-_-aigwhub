@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 
+	"ai-gateway-hub/internal/config"
 	"ai-gateway-hub/internal/models"
 	"ai-gateway-hub/internal/providers"
 )
@@ -66,15 +67,20 @@ func (r *ProviderRegistry) List() []*models.Provider {
 }
 
 // RegisterDefaultProviders registers the default set of providers
-func (r *ProviderRegistry) RegisterDefaultProviders(logDir string) error {
+func (r *ProviderRegistry) RegisterDefaultProviders(cfg *config.Config) error {
 	// Register Claude provider
-	claudeProvider := providers.NewClaudeProvider("claude", logDir)
+	claudeProvider := providers.NewClaudeProvider(
+		cfg.ClaudeCLIPath,
+		cfg.LogDir,
+		cfg.ClaudeSkipPermissions,
+		cfg.ClaudeExtraArgs,
+	)
 	if err := r.Register(claudeProvider); err != nil {
 		return fmt.Errorf("failed to register Claude provider: %w", err)
 	}
 
 	// Future: Register Gemini provider
-	// geminiProvider := providers.NewGeminiProvider("gemini", logDir)
+	// geminiProvider := providers.NewGeminiProvider(cfg.GeminiCLIPath, cfg.LogDir)
 	// if err := r.Register(geminiProvider); err != nil {
 	//     return fmt.Errorf("failed to register Gemini provider: %w", err)
 	// }

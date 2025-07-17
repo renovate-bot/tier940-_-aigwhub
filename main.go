@@ -91,7 +91,7 @@ func main() {
 	providerRegistry := services.NewProviderRegistry()
 	
 	// Register providers
-	if err := providerRegistry.RegisterDefaultProviders(cfg.LogDir); err != nil {
+	if err := providerRegistry.RegisterDefaultProviders(cfg); err != nil {
 		utils.Warn("Failed to register default providers: %v", err)
 	}
 

@@ -64,7 +64,7 @@ func setupTestServer(t *testing.T) (*gin.Engine, func()) {
 	providerRegistry := services.NewProviderRegistry()
 
 	// Register test providers
-	if err := providerRegistry.RegisterDefaultProviders(cfg.LogDir); err != nil {
+	if err := providerRegistry.RegisterDefaultProviders(cfg); err != nil {
 		t.Logf("Warning: Failed to register providers: %v", err)
 	}
 
@@ -85,7 +85,7 @@ func setupTestServer(t *testing.T) (*gin.Engine, func()) {
 
 	api := router.Group("/api")
 	{
-		api.GET("/health", handlers.HealthCheckHandler(redisClient))
+		api.GET("/health", handlers.HealthCheckHandler(redisClient, "test"))
 		api.GET("/chats", handlers.GetChatsHandler(chatService))
 		api.POST("/chats", handlers.CreateChatHandler(chatService))
 		api.DELETE("/chats/:id", handlers.DeleteChatHandler(chatService))

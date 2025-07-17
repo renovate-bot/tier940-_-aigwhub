@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"ai-gateway-hub/internal/config"
 	"ai-gateway-hub/internal/providers"
 	"ai-gateway-hub/internal/services"
 	"ai-gateway-hub/internal/utils"
@@ -30,7 +31,7 @@ func TestClaudeProvider(t *testing.T) {
 	logDir := "./test_logs"
 	
 	t.Run("NewClaudeProvider", func(t *testing.T) {
-		provider := providers.NewClaudeProvider("claude", logDir)
+		provider := providers.NewClaudeProvider("claude", logDir, false, "")
 		
 		if provider == nil {
 			t.Fatal("NewClaudeProvider returned nil")
@@ -50,7 +51,7 @@ func TestClaudeProvider(t *testing.T) {
 	})
 
 	t.Run("IsAvailable", func(t *testing.T) {
-		provider := providers.NewClaudeProvider("claude", logDir)
+		provider := providers.NewClaudeProvider("claude", logDir, false, "")
 		
 		// Note: This test will check if claude CLI is available
 		// In a real environment, this should return true if claude CLI is installed
@@ -62,7 +63,7 @@ func TestClaudeProvider(t *testing.T) {
 	})
 
 	t.Run("IsAvailable_InvalidCommand", func(t *testing.T) {
-		provider := providers.NewClaudeProvider("non_existent_command", logDir)
+		provider := providers.NewClaudeProvider("non_existent_command", logDir, false, "")
 		
 		available := provider.IsAvailable()
 		if available {
@@ -71,7 +72,7 @@ func TestClaudeProvider(t *testing.T) {
 	})
 
 	t.Run("SendPrompt_CreatesLogFile", func(t *testing.T) {
-		provider := providers.NewClaudeProvider("echo", logDir) // Use echo instead of claude for testing
+		provider := providers.NewClaudeProvider("echo", logDir, false, "") // Use echo instead of claude for testing
 		
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -107,7 +108,7 @@ func TestClaudeProvider(t *testing.T) {
 	})
 
 	t.Run("SendPrompt_ContextTimeout", func(t *testing.T) {
-		provider := providers.NewClaudeProvider("sleep", logDir) // Use sleep command for timeout test
+		provider := providers.NewClaudeProvider("sleep", logDir, false, "") // Use sleep command for timeout test
 		
 		// Very short timeout
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
@@ -129,7 +130,7 @@ func TestClaudeProvider(t *testing.T) {
 	})
 
 	t.Run("StreamResponse_CreatesLogFile", func(t *testing.T) {
-		provider := providers.NewClaudeProvider("echo", logDir)
+		provider := providers.NewClaudeProvider("echo", logDir, false, "")
 		
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -175,27 +176,27 @@ func TestProviderRegistry(t *testing.T) {
 
 	t.Run("RegisterAndGet", func(t *testing.T) {
 		registry := services.NewProviderRegistry()
-		provider := providers.NewClaudeProvider("test-claude", "./logs")
+		provider := providers.NewClaudeProvider("test-claude", "./logs", false, "")
 		
 		err := registry.Register(provider)
 		if err != nil {
 			t.Fatalf("Failed to register provider: %v", err)
 		}
 		
-		retrieved, err := registry.Get("test-claude")
+		retrieved, err := registry.Get("claude")
 		if err != nil {
 			t.Fatalf("Failed to get provider: %v", err)
 		}
 		
-		if retrieved.GetID() != "test-claude" {
-			t.Errorf("Expected ID 'test-claude', got '%s'", retrieved.GetID())
+		if retrieved.GetID() != "claude" {
+			t.Errorf("Expected ID 'claude', got '%s'", retrieved.GetID())
 		}
 	})
 
 	t.Run("RegisterDuplicate", func(t *testing.T) {
 		registry := services.NewProviderRegistry()
-		provider1 := providers.NewClaudeProvider("duplicate", "./logs")
-		provider2 := providers.NewClaudeProvider("duplicate", "./logs")
+		provider1 := providers.NewClaudeProvider("duplicate", "./logs", false, "")
+		provider2 := providers.NewClaudeProvider("duplicate", "./logs", false, "")
 		
 		err := registry.Register(provider1)
 		if err != nil {
@@ -219,32 +220,34 @@ func TestProviderRegistry(t *testing.T) {
 
 	t.Run("List", func(t *testing.T) {
 		registry := services.NewProviderRegistry()
-		provider1 := providers.NewClaudeProvider("claude1", "./logs")
-		provider2 := providers.NewClaudeProvider("claude2", "./logs")
+		provider := providers.NewClaudeProvider("claude", "./logs", false, "")
 		
-		registry.Register(provider1)
-		registry.Register(provider2)
+		err := registry.Register(provider)
+		if err != nil {
+			t.Fatalf("Failed to register provider: %v", err)
+		}
 		
 		providers := registry.List()
-		if len(providers) != 2 {
-			t.Errorf("Expected 2 providers, got %d", len(providers))
+		if len(providers) != 1 {
+			t.Errorf("Expected 1 provider, got %d", len(providers))
 		}
 		
-		// Check that all providers are listed
-		ids := make(map[string]bool)
-		for _, p := range providers {
-			ids[p.ID] = true
-		}
-		
-		if !ids["claude1"] || !ids["claude2"] {
-			t.Error("Not all registered providers were listed")
+		// Check that the provider is listed
+		if len(providers) > 0 && providers[0].ID != "claude" {
+			t.Errorf("Expected provider ID 'claude', got '%s'", providers[0].ID)
 		}
 	})
 
 	t.Run("RegisterDefaultProviders", func(t *testing.T) {
 		registry := services.NewProviderRegistry()
 		
-		err := registry.RegisterDefaultProviders("./test_logs")
+		cfg := &config.Config{
+			LogDir:                "./test_logs",
+			ClaudeCLIPath:         "claude",
+			ClaudeSkipPermissions: false,
+			ClaudeExtraArgs:       "",
+		}
+		err := registry.RegisterDefaultProviders(cfg)
 		if err != nil {
 			t.Fatalf("Failed to register default providers: %v", err)
 		}

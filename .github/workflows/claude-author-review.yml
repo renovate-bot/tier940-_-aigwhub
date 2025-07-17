@@ -1,0 +1,66 @@
+name: Claude Review - Specific Authors
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  review-by-author:
+    # Only run for PRs from specific authors or conditions
+    # Customize this condition based on your needs
+    if: |
+      github.event.pull_request.user.login == 'dependabot[bot]' ||
+      github.event.pull_request.user.login == 'renovate[bot]' ||
+      github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR' ||
+      contains(github.event.pull_request.labels.*.name, 'needs-review')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Review PR from Specific Author
+        uses: anthropics/claude-code-action@beta
+        with:
+          # Use OAuth token (recommended) or API key
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          
+          timeout_minutes: "60"
+          
+          direct_prompt: |
+            Please provide a thorough review of this pull request.
+
+            ${{ github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR' && 
+            'This is from a FIRST TIME CONTRIBUTOR! Please be welcoming and encouraging. Provide detailed explanations for any suggestions to help them learn our codebase and Go best practices. Point out what they did well in addition to areas for improvement.' || '' }}
+            
+            ${{ (github.event.pull_request.user.login == 'dependabot[bot]' || github.event.pull_request.user.login == 'renovate[bot]') && 
+            'This is an automated dependency update. Please review:
+            - Breaking changes in the changelog
+            - Security implications of the update
+            - Compatibility with our Go version
+            - Any required code changes due to API updates
+            - Test coverage for affected code paths' || '' }}
+            
+            ${{ contains(github.event.pull_request.labels.*.name, 'needs-review') && 
+            'This PR has been specifically flagged for detailed review. Please provide extra thorough analysis of:
+            - Architecture decisions
+            - Security implications
+            - Performance impact
+            - Code maintainability
+            - Test coverage and quality' || '' }}
+
+            General review guidelines:
+            - Adherence to Go idioms and project coding standards
+            - Proper error handling and resource cleanup
+            - Security best practices
+            - Test coverage for new code
+            - Clear and helpful documentation
+            
+            Provide detailed feedback and concrete suggestions for improvement.
+            Be constructive and educational in your comments.

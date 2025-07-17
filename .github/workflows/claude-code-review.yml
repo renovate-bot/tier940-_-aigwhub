@@ -1,17 +1,17 @@
-name: Claude Code Review
+name: Claude Auto Review
 
 on:
   pull_request:
     types: [opened, synchronize]
     # Optional: Only run on specific file changes
     # paths:
-    #   - "src/**/*.ts"
-    #   - "src/**/*.tsx"
-    #   - "src/**/*.js"
-    #   - "src/**/*.jsx"
+    #   - "**/*.go"
+    #   - "go.mod"
+    #   - "go.sum"
+    #   - "web/templates/**/*.html"
 
 jobs:
-  claude-review:
+  auto-review:
     # Optional: Filter by PR author
     # if: |
     #   github.event.pull_request.user.login == 'external-contributor' ||
@@ -31,25 +31,42 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Run Claude Code Review
-        id: claude-review
-        uses: anthropics/claude-action@beta
+      - name: Automatic PR Review
+        uses: anthropics/claude-code-action@beta
         with:
+          # Use OAuth token (recommended) or API key
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          
+          timeout_minutes: "60"
 
           # Optional: Specify model (defaults to Claude Sonnet 4, uncomment for Claude Opus 4)
           # model: "claude-opus-4-20250514"
 
           # Direct prompt for automated review (no @claude mention needed)
           direct_prompt: |
-            Please review this pull request and provide feedback on:
-            - Code quality and best practices
-            - Potential bugs or issues
-            - Performance considerations
-            - Security concerns
-            - Test coverage
+            Please review this pull request and provide comprehensive feedback.
 
-            Be constructive and helpful in your feedback.
+            This is a Go project using:
+            - Gin web framework
+            - Go html/template for server-side rendering
+            - Alpine.js for client-side interactions
+            - Redis for session management
+            - SQLite for data persistence
+            - WebSocket for real-time communication
+
+            Focus on:
+            - Go code quality and idioms
+            - Proper error handling with error wrapping
+            - Security implications (SQL injection, XSS, session management)
+            - Performance considerations
+            - Test coverage
+            - Goroutine safety and race conditions
+            - Proper resource cleanup (defer statements)
+            - API design consistency
+
+            Provide constructive feedback with specific suggestions for improvement.
+            Use inline comments to highlight specific areas of concern.
 
           # Optional: Use sticky comments to make Claude reuse the same comment on subsequent pushes to the same PR
           # use_sticky_comment: true
@@ -57,19 +74,20 @@ jobs:
           # Optional: Customize review based on file types
           # direct_prompt: |
           #   Review this PR focusing on:
-          #   - For TypeScript files: Type safety and proper interface usage
-          #   - For API endpoints: Security, input validation, and error handling
-          #   - For React components: Performance, accessibility, and best practices
-          #   - For tests: Coverage, edge cases, and test quality
+          #   - For Go files: Error handling, goroutine safety, and idiomatic Go patterns
+          #   - For HTML templates: XSS prevention and proper escaping
+          #   - For handlers: Request validation and security
+          #   - For database code: SQL injection prevention and transaction handling
+          #   - For WebSocket code: Connection management and cleanup
 
           # Optional: Different prompts for different authors
           # direct_prompt: |
           #   ${{ github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR' &&
-          #   'Welcome! Please review this PR from a first-time contributor. Be encouraging and provide detailed explanations for any suggestions.' ||
-          #   'Please provide a thorough code review focusing on our coding standards and best practices.' }}
+          #   'Welcome! Please review this PR from a first-time contributor. Be encouraging and provide detailed explanations for any suggestions, especially around Go idioms and best practices.' ||
+          #   'Please provide a thorough code review focusing on our Go coding standards and best practices.' }}
 
           # Optional: Add specific tools for running tests or linting
-          # allowed_tools: "Bash(npm run test),Bash(npm run lint),Bash(npm run typecheck)"
+          # allowed_tools: "Bash(go test ./...),Bash(go fmt ./...),Bash(golangci-lint run),Bash(go mod tidy)"
 
           # Optional: Skip review for certain conditions
           # if: |
