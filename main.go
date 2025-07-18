@@ -28,7 +28,7 @@ import (
 // Version information (set during build)
 var version = "dev"
 
-//go:embed web/templates/*.html
+//go:embed web/templates/*.html web/templates/pages/*.html web/templates/components/*.html
 var templateFiles embed.FS
 
 //go:embed locales/*/*.json
@@ -134,7 +134,7 @@ func main() {
 			return i18n.T(langStr, key, args...)
 		},
 	})
-	tmpl = template.Must(tmpl.ParseFS(templateFS, "*.html"))
+	tmpl = template.Must(tmpl.ParseFS(templateFS, "*.html", "pages/*.html", "components/*.html"))
 	router.SetHTMLTemplate(tmpl)
 
 	// Initialize WebSocket hub
@@ -144,6 +144,7 @@ func main() {
 	// Setup routes
 	router.GET("/", handlers.IndexHandler())
 	router.GET("/chat/:id", handlers.ChatHandler(chatService))
+	router.GET("/settings", handlers.SettingsHandler())
 
 	// API routes
 	api := router.Group("/api")
@@ -154,6 +155,8 @@ func main() {
 		api.DELETE("/chats/:id", handlers.DeleteChatHandler(chatService))
 		api.GET("/providers", handlers.GetProvidersHandler(providerRegistry))
 		api.GET("/providers/:id/status", handlers.GetProviderStatusHandler(providerRegistry))
+		api.GET("/settings", handlers.GetSettingsHandler())
+		api.POST("/settings", handlers.UpdateSettingsHandler())
 	}
 
 	// WebSocket endpoint

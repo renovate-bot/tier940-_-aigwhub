@@ -1,0 +1,448 @@
+{{define "pages/chat.html"}}
+<!DOCTYPE html>
+<html lang="ja" x-data="pageData()" x-init="init(); initTheme(); $watch('darkMode', val => localStorage.setItem('darkMode', val))" :class="{ 'dark': darkMode }">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.chat.Title}} - {{T .lang "app.title"}}</title>
+    
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.0/dist/cdn.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#10B981',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Custom styles -->
+    <style>
+        [x-cloak] { display: none !important; }
+        .scrollbar-thin::-webkit-scrollbar { width: 6px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: #f1f1f1; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: #888; border-radius: 3px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: #555; }
+        .dark .scrollbar-thin::-webkit-scrollbar-track { background: #374151; }
+        .dark .scrollbar-thin::-webkit-scrollbar-thumb { background: #6B7280; }
+        
+        .message-content {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .typing-indicator {
+            display: inline-flex;
+            align-items: center;
+        }
+        .typing-indicator span {
+            height: 8px;
+            width: 8px;
+            background-color: #9CA3AF;
+            border-radius: 50%;
+            display: inline-block;
+            margin: 0 2px;
+            animation: typing 1.4s infinite;
+        }
+        .typing-indicator span:nth-child(1) { animation-delay: 0s; }
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing {
+            0%, 60%, 100% { opacity: 0.3; }
+            30% { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+    <div class="min-h-screen flex flex-col">
+        {{template "header-chat" .}}
+        
+        <!-- Main content -->
+        <main class="flex-1">
+            <div class="min-h-screen flex flex-col">
+                <!-- Messages area -->
+                <div class="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin" x-ref="messagesContainer">
+                    <!-- Initial messages -->
+                    {{range .messages}}
+                    <div class="flex {{if eq .Role "user"}}justify-end{{else}}justify-start{{end}}">
+                        <div class="max-w-3xl {{if eq .Role "user"}}bg-primary text-white{{else}}bg-gray-100 dark:bg-gray-700{{end}} rounded-lg px-4 py-2">
+                            <div class="text-xs {{if eq .Role "user"}}text-blue-100{{else}}text-gray-500 dark:text-gray-400{{end}} mb-1">
+                                {{if eq .Role "user"}}{{T $.lang "chat.you"}}{{else}}{{$.chat.Provider}}{{end}}
+                            </div>
+                            <div class="message-content">{{.Content}}</div>
+                        </div>
+                    </div>
+                    {{end}}
+                    
+                    <!-- Dynamic messages -->
+                    <template x-for="message in messages" :key="message.id">
+                        <div class="flex" :class="message.role === 'user' ? 'justify-end' : 'justify-start'">
+                            <div class="max-w-3xl rounded-lg px-4 py-2" :class="message.role === 'user' ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-700'">
+                                <div class="text-xs mb-1" :class="message.role === 'user' ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'">
+                                    <span x-text="message.role === 'user' ? '{{T .lang "chat.you"}}' : '{{.chat.Provider}}'"></span>
+                                </div>
+                                <div class="message-content" x-text="message.content"></div>
+                            </div>
+                        </div>
+                    </template>
+                    
+                    <!-- Typing indicator -->
+                    <div x-show="isTyping" class="flex justify-start">
+                        <div class="bg-gray-100 dark:bg-gray-700 rounded-lg px-4 py-2">
+                            <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">{{.chat.Provider}}</div>
+                            <div class="typing-indicator">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Input area -->
+                <div class="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
+                    <form @submit.prevent="sendMessage" class="flex space-x-2">
+                        <div class="flex-1 relative">
+                            <textarea
+                                x-model="newMessage"
+                                @keydown="handleKeyDown($event)"
+                                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg resize-none focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700"
+                                rows="3"
+                                :placeholder="getPlaceholderText()"
+                                :disabled="!connected || isTyping"
+                            ></textarea>
+                            <div class="absolute bottom-2 right-2 text-xs text-gray-400 dark:text-gray-500" x-show="newMessage.trim()">
+                                <span x-text="getSendHint()"></span>
+                            </div>
+                        </div>
+                        
+                        <button
+                            type="submit"
+                            :disabled="!connected || !newMessage.trim() || isTyping"
+                            class="px-6 py-2 bg-primary text-white font-medium rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors self-end"
+                        >
+                            {{T .lang "chat.send"}}
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </main>
+        
+        {{template "footer" .}}
+    </div>
+    
+    <script>
+        function pageData() {
+            return {
+                // Theme management
+                darkMode: false,
+                currentTheme: 'light',
+                
+                initTheme() {
+                    const savedTheme = localStorage.getItem('theme') || 'light';
+                    this.currentTheme = savedTheme;
+                    
+                    if (savedTheme === 'dark') {
+                        this.darkMode = true;
+                    } else if (savedTheme === 'light') {
+                        this.darkMode = false;
+                    } else if (savedTheme === 'auto') {
+                        this.darkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    } else {
+                        // Fallback to darkMode localStorage for backwards compatibility
+                        this.darkMode = localStorage.getItem('darkMode') === 'true';
+                    }
+                },
+                
+                getCurrentTheme() {
+                    return this.currentTheme;
+                },
+                
+                getThemeButtonTitle() {
+                    const theme = this.getCurrentTheme();
+                    switch(theme) {
+                        case 'light': return 'Light Mode (click for Dark)';
+                        case 'dark': return 'Dark Mode (click for Auto)';
+                        case 'auto': return 'Auto Mode (click for Light)';
+                        default: return 'Light Mode';
+                    }
+                },
+                
+                toggleTheme() {
+                    // Cycle through: light -> dark -> auto -> light
+                    const currentTheme = this.getCurrentTheme();
+                    let newTheme;
+                    
+                    switch(currentTheme) {
+                        case 'light':
+                            newTheme = 'dark';
+                            this.darkMode = true;
+                            break;
+                        case 'dark':
+                            newTheme = 'auto';
+                            this.darkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                            break;
+                        case 'auto':
+                            newTheme = 'light';
+                            this.darkMode = false;
+                            break;
+                        default:
+                            newTheme = 'light';
+                            this.darkMode = false;
+                    }
+                    
+                    // Update reactive property
+                    this.currentTheme = newTheme;
+                    
+                    // Save theme preference
+                    localStorage.setItem('theme', newTheme);
+                    localStorage.setItem('darkMode', this.darkMode.toString());
+                    
+                    // Update cookie for server-side persistence
+                    document.cookie = `theme=${newTheme}; path=/; max-age=${30*24*3600}`; // 30 days
+                    
+                    // Dispatch custom event to notify other components
+                    window.dispatchEvent(new CustomEvent('themeChanged', { 
+                        detail: { theme: newTheme, darkMode: this.darkMode }
+                    }));
+                },
+                
+                // Legacy method for backward compatibility
+                toggleDarkMode() {
+                    this.toggleTheme();
+                },
+
+                // Chat functionality
+                ...chatInterface()
+            }
+        }
+
+        function chatInterface() {
+            return {
+                chatId: {{.chat.ID}},
+                provider: '{{.chat.Provider}}',
+                messages: [],
+                newMessage: '',
+                connected: false,
+                isTyping: false,
+                ws: null,
+                reconnectTimeout: null,
+                currentResponse: '',
+                providerStatus: {},
+                chatInputBehavior: 'enter_to_send', // Default setting
+                
+                init() {
+                    this.connect();
+                    this.loadChatSettings();
+                    // Check provider status asynchronously - don't block initialization
+                    this.checkProviderStatus();
+                    
+                    // Auto-scroll to bottom on new messages
+                    this.$watch('messages', () => {
+                        this.$nextTick(() => {
+                            this.$refs.messagesContainer.scrollTop = this.$refs.messagesContainer.scrollHeight;
+                        });
+                    });
+                    
+                    // Check provider status periodically
+                    setInterval(() => {
+                        if (!this.isTyping) {
+                            this.checkProviderStatus();
+                        }
+                    }, 30000); // Check every 30 seconds
+                },
+                
+                async loadChatSettings() {
+                    try {
+                        const response = await fetch('/api/settings');
+                        if (response.ok) {
+                            const settings = await response.json();
+                            this.chatInputBehavior = settings.chatInputBehavior || 'enter_to_send';
+                        }
+                    } catch (error) {
+                        console.error('Failed to load chat settings:', error);
+                    }
+                },
+                
+                handleKeyDown(event) {
+                    if (event.key === 'Enter') {
+                        if (this.chatInputBehavior === 'enter_to_send') {
+                            // Enter sends, Shift+Enter for new line
+                            if (event.shiftKey) {
+                                // Allow Shift+Enter to create new line (default behavior)
+                                return true;
+                            } else {
+                                // Enter alone sends message
+                                event.preventDefault();
+                                this.sendMessage();
+                            }
+                        } else {
+                            // Ctrl+Enter sends, Enter for new line
+                            if (event.ctrlKey || event.metaKey) {
+                                event.preventDefault();
+                                this.sendMessage();
+                            }
+                            // Enter alone creates new line (default behavior)
+                        }
+                    }
+                },
+                
+                getPlaceholderText() {
+                    if (this.chatInputBehavior === 'enter_to_send') {
+                        return '{{T .lang "chat.messagePlaceholder"}} (Shift+Enter for new line)';
+                    } else {
+                        return '{{T .lang "chat.messagePlaceholder"}} (Ctrl+Enter to send)';
+                    }
+                },
+                
+                getSendHint() {
+                    if (this.chatInputBehavior === 'enter_to_send') {
+                        return 'Enter to send, Shift+Enter for new line';
+                    } else {
+                        return 'Ctrl+Enter to send, Enter for new line';
+                    }
+                },
+                
+                async checkProviderStatus() {
+                    try {
+                        const response = await fetch(`/api/providers/${this.provider}/status`);
+                        if (response.ok) {
+                            this.providerStatus = await response.json();
+                        }
+                    } catch (error) {
+                        console.error('Failed to check provider status:', error);
+                    }
+                },
+                
+                connect() {
+                    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                    const wsUrl = `${protocol}//${window.location.host}/ws`;
+                    
+                    this.ws = new WebSocket(wsUrl);
+                    
+                    this.ws.onopen = () => {
+                        console.log('WebSocket connected');
+                        this.connected = true;
+                        
+                        // Send session status
+                        this.ws.send(JSON.stringify({
+                            type: 'session_status',
+                            data: {
+                                chat_id: this.chatId,
+                                provider: this.provider
+                            }
+                        }));
+                    };
+                    
+                    this.ws.onmessage = (event) => {
+                        const message = JSON.parse(event.data);
+                        this.handleMessage(message);
+                    };
+                    
+                    this.ws.onclose = () => {
+                        console.log('WebSocket disconnected');
+                        this.connected = false;
+                        this.isTyping = false;
+                        
+                        // Attempt to reconnect after 3 seconds
+                        this.reconnectTimeout = setTimeout(() => {
+                            this.connect();
+                        }, 3000);
+                    };
+                    
+                    this.ws.onerror = (error) => {
+                        console.error('WebSocket error:', error);
+                    };
+                },
+                
+                handleMessage(message) {
+                    switch (message.type) {
+                        case 'ai_response':
+                            if (message.data.stream) {
+                                // Streaming response
+                                this.currentResponse += message.data.content;
+                                
+                                // Update or add the assistant message
+                                const lastMessage = this.messages[this.messages.length - 1];
+                                if (lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming) {
+                                    lastMessage.content = this.currentResponse;
+                                } else {
+                                    this.messages.push({
+                                        id: Date.now(),
+                                        role: 'assistant',
+                                        content: this.currentResponse,
+                                        isStreaming: true
+                                    });
+                                }
+                            } else {
+                                // Complete response
+                                this.isTyping = false;
+                                if (this.currentResponse) {
+                                    // Mark streaming as complete
+                                    const lastMessage = this.messages[this.messages.length - 1];
+                                    if (lastMessage && lastMessage.isStreaming) {
+                                        lastMessage.isStreaming = false;
+                                    }
+                                    this.currentResponse = '';
+                                }
+                            }
+                            break;
+                            
+                        case 'error':
+                            this.isTyping = false;
+                            alert(`{{T .lang "error.websocketError"}}: ${message.data.content}`);
+                            break;
+                    }
+                },
+                
+                sendMessage() {
+                    if (!this.connected || !this.newMessage.trim() || this.isTyping) return;
+                    
+                    const content = this.newMessage.trim();
+                    
+                    // Add user message to UI
+                    this.messages.push({
+                        id: Date.now(),
+                        role: 'user',
+                        content: content
+                    });
+                    
+                    // Send message via WebSocket
+                    this.ws.send(JSON.stringify({
+                        type: 'ai_prompt',
+                        data: {
+                            chat_id: this.chatId,
+                            provider: this.provider,
+                            content: content,
+                            timestamp: new Date().toISOString()
+                        }
+                    }));
+                    
+                    // Clear input and show typing indicator
+                    this.newMessage = '';
+                    this.isTyping = true;
+                    this.currentResponse = '';
+                },
+                
+                destroy() {
+                    if (this.reconnectTimeout) {
+                        clearTimeout(this.reconnectTimeout);
+                    }
+                    if (this.ws) {
+                        this.ws.close();
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
+{{end}}

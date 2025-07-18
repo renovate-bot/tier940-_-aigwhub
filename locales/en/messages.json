@@ -81,5 +81,37 @@
       "error": "Error",
       "checking": "Checking status..."
     }
+  },
+
+  "settings": {
+    "title": "Settings",
+    "language": {
+      "title": "Language Settings",
+      "description": "Choose your preferred language for the interface",
+      "label": "Language",
+      "help": "The language preference will be remembered for future visits"
+    },
+    "theme": {
+      "label": "Theme",
+      "help": "Choose your preferred theme",
+      "light": "Light",
+      "dark": "Dark",
+      "auto": "Auto (system)"
+    },
+    "chat": {
+      "input": {
+        "label": "Chat Input Behavior",
+        "enterToSend": "Enter to send",
+        "enterToSendDesc": "Press Enter to send message, Shift+Enter for new line",
+        "ctrlEnterToSend": "Ctrl+Enter to send",
+        "ctrlEnterToSendDesc": "Press Ctrl+Enter to send message, Enter for new line",
+        "help": "Choose how the Enter key behaves in chat input"
+      }
+    },
+    "save": "Save Settings",
+    "saving": "Saving...",
+    "reset": "Reset",
+    "successMessage": "Settings saved successfully",
+    "errorMessage": "Failed to save settings"
   }
 }

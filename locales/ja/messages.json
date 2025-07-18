@@ -81,5 +81,37 @@
       "error": "エラー",
       "checking": "ステータスを確認中..."
     }
+  },
+
+  "settings": {
+    "title": "設定",
+    "language": {
+      "title": "言語設定",
+      "description": "インターフェースの表示言語を選択してください",
+      "label": "言語",
+      "help": "言語設定は次回アクセス時にも記憶されます"
+    },
+    "theme": {
+      "label": "テーマ",
+      "help": "お好みのテーマを選択してください",
+      "light": "ライト",
+      "dark": "ダーク",
+      "auto": "自動（システム設定）"
+    },
+    "chat": {
+      "input": {
+        "label": "チャット入力の動作",
+        "enterToSend": "Enterで送信",
+        "enterToSendDesc": "Enterキーでメッセージを送信、Shift+Enterで改行",
+        "ctrlEnterToSend": "Ctrl+Enterで送信",
+        "ctrlEnterToSendDesc": "Ctrl+Enterでメッセージを送信、Enterで改行",
+        "help": "チャット入力でのEnterキーの動作を選択してください"
+      }
+    },
+    "save": "設定を保存",
+    "saving": "保存中...",
+    "reset": "リセット",
+    "successMessage": "設定が正常に保存されました",
+    "errorMessage": "設定の保存に失敗しました"
   }
 }

@@ -21,7 +21,7 @@ func ChatHandler(chatService *services.ChatService) gin.HandlerFunc {
 		chatID, err := strconv.ParseInt(chatIDStr, 10, 64)
 		if err != nil {
 			utils.Error("ChatHandler: invalid chat ID %s: %v", chatIDStr, err)
-			c.HTML(http.StatusBadRequest, "error.html", gin.H{
+			c.HTML(http.StatusBadRequest, "pages/error.html", gin.H{
 				"error": t("error.invalidChatId"),
 				"lang":  lang,
 			})
@@ -32,7 +32,7 @@ func ChatHandler(chatService *services.ChatService) gin.HandlerFunc {
 		chat, err := chatService.GetChat(chatID)
 		if err != nil {
 			utils.Error("ChatHandler: failed to get chat %d: %v", chatID, err)
-			c.HTML(http.StatusNotFound, "error.html", gin.H{
+			c.HTML(http.StatusNotFound, "pages/error.html", gin.H{
 				"error": t("error.chatNotFound"),
 				"lang":  lang,
 			})
@@ -44,7 +44,7 @@ func ChatHandler(chatService *services.ChatService) gin.HandlerFunc {
 		messages, err := chatService.GetMessages(chatID, 1000, 0)
 		if err != nil {
 			utils.Error("ChatHandler: failed to get messages for chat %d: %v", chatID, err)
-			c.HTML(http.StatusInternalServerError, "error.html", gin.H{
+			c.HTML(http.StatusInternalServerError, "pages/error.html", gin.H{
 				"error": t("error.failedToLoadMessages"),
 				"lang":  lang,
 			})
@@ -53,7 +53,7 @@ func ChatHandler(chatService *services.ChatService) gin.HandlerFunc {
 		utils.Debug("ChatHandler: found %d messages for chat %d", len(messages), chatID)
 
 		utils.Debug("ChatHandler: rendering chat.html template")
-		c.HTML(http.StatusOK, "chat.html", gin.H{
+		c.HTML(http.StatusOK, "pages/chat.html", gin.H{
 			"title":    chat.Title,
 			"chat":     chat,
 			"messages": messages,

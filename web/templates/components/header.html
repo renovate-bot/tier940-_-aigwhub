@@ -1,0 +1,106 @@
+{{define "header-basic"}}
+<header class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between items-center h-16">
+            <!-- Header Left -->
+            <div class="flex items-center">
+                <a href="/" class="text-2xl font-bold text-primary">{{T .lang "app.title"}}</a>
+            </div>
+            
+            <!-- Header Right -->
+            <div class="flex items-center space-x-4">
+                <!-- Settings link -->
+                <a href="/settings" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title="{{T .lang "settings.title"}}">
+                    {{template "icon-settings" .}}
+                </a>
+                
+                {{template "theme-toggle" .}}
+                
+                <!-- GitHub link -->
+                <a href="https://github.com/yourusername/ai-gateway-hub" target="_blank" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    {{template "icon-github" .}}
+                </a>
+            </div>
+        </div>
+    </div>
+</header>
+{{end}}
+
+{{define "header-settings"}}
+<header class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between items-center h-16">
+            <!-- Header Left -->
+            <div class="flex items-center space-x-3">
+                <a href="/" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                    {{template "icon-arrow-left" .}}
+                </a>
+                <h1 class="text-xl font-semibold">{{T .lang "settings.title"}}</h1>
+            </div>
+            
+            <!-- Header Right -->
+            <div class="flex items-center space-x-4">
+                {{template "theme-toggle" .}}
+            </div>
+        </div>
+    </div>
+</header>
+{{end}}
+
+{{define "header-chat"}}
+<header class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between items-center h-16">
+            <!-- Header Left -->
+            <div class="flex items-center space-x-3">
+                <a href="/" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                    {{template "icon-arrow-left" .}}
+                </a>
+                <div class="min-w-0 flex-1">
+                    <h1 class="font-semibold truncate">{{.chat.Title}}</h1>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 truncate">{{.chat.Provider}}</p>
+                </div>
+            </div>
+            
+            <!-- Header Right -->
+            <div class="flex items-center space-x-2">
+                <!-- WebSocket connection status -->
+                <span x-show="connected" class="flex items-center text-xs text-green-600 dark:text-green-400">
+                    <span class="w-2 h-2 bg-green-600 dark:bg-green-400 rounded-full mr-1"></span>
+                    {{T .lang "chat.connected"}}
+                </span>
+                <span x-show="!connected" class="flex items-center text-xs text-red-600 dark:text-red-400">
+                    <span class="w-2 h-2 bg-red-600 dark:bg-red-400 rounded-full mr-1"></span>
+                    {{T .lang "chat.disconnected"}}
+                </span>
+                
+                <!-- Provider status -->
+                <button @click="checkProviderStatus()" class="flex items-center text-xs hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded-lg transition-colors" title="Click to refresh status">
+                    <span 
+                        class="inline-flex items-center"
+                        :class="{
+                            'text-green-600 dark:text-green-400': providerStatus.status === 'ready',
+                            'text-red-600 dark:text-red-400': providerStatus.status === 'not_installed' || providerStatus.status === 'error',
+                            'text-yellow-600 dark:text-yellow-400': providerStatus.status === 'not_configured',
+                            'text-gray-500 dark:text-gray-400': !providerStatus.status
+                        }"
+                    >
+                        <span class="w-2 h-2 rounded-full mr-1"
+                            :class="{
+                                'bg-green-600 dark:bg-green-400': providerStatus.status === 'ready',
+                                'bg-red-600 dark:bg-red-400': providerStatus.status === 'not_installed' || providerStatus.status === 'error',
+                                'bg-yellow-600 dark:bg-yellow-400': providerStatus.status === 'not_configured',
+                                'bg-gray-400 dark:bg-gray-600': !providerStatus.status
+                            }"
+                        ></span>
+                        <span x-show="providerStatus.status" x-text="providerStatus.details || 'Provider: ' + providerStatus.status"></span>
+                        <span x-show="!providerStatus.status">Loading...</span>
+                    </span>
+                </button>
+                
+                {{template "theme-toggle" .}}
+            </div>
+        </div>
+    </div>
+</header>
+{{end}}

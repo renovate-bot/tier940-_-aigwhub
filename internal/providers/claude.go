@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 
 	"ai-gateway-hub/internal/utils"
 )
@@ -124,13 +125,19 @@ func (p *ClaudeProvider) SendPrompt(ctx context.Context, prompt string, chatID i
 	}
 	defer logFile.Close()
 
-	// Execute claude CLI
-	args := p.buildArgs("chat", "--no-stream")
+	// Execute claude CLI with --print flag for non-interactive output
+	args := p.buildArgs("--print")
 	cmd := exec.CommandContext(ctx, p.cliPath, args...)
 	cmd.Stdin = bytes.NewReader([]byte(prompt))
 	
 	// Inherit environment variables including PATH and HOME for Claude auth
-	cmd.Env = os.Environ()
+	// Add environment variables to prevent TTY issues in Docker
+	cmd.Env = append(os.Environ(), 
+		"CI=true",                    // Prevent interactive prompts
+		"TERM=dumb",                  // Simple terminal
+		"NO_COLOR=1",                 // Disable colors
+		"CLAUDE_DISABLE_RAW_MODE=1",  // Disable raw mode
+	)
 	
 	// Log the prompt
 	fmt.Fprintf(logFile, "USER: %s\n", prompt)
@@ -163,17 +170,46 @@ func (p *ClaudeProvider) StreamResponse(ctx context.Context, prompt string, chat
 	}
 	defer logFile.Close()
 
-	// Execute claude CLI with streaming
-	args := p.buildArgs("chat")
-	cmd := exec.CommandContext(ctx, p.cliPath, args...)
-	cmd.Stdin = bytes.NewReader([]byte(prompt))
-	
-	// Inherit environment variables including PATH and HOME for Claude auth
-	cmd.Env = os.Environ()
-	
 	// Log the prompt
 	fmt.Fprintf(logFile, "USER: %s\n", prompt)
 	fmt.Fprintf(logFile, "ASSISTANT: ")
+
+	// Create a temporary file for the prompt to avoid stdin issues
+	tmpFile, err := os.CreateTemp("", "claude-prompt-*.txt")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+	tmpFileName := tmpFile.Name()
+	// Ensure cleanup - file will be closed first, then removed
+	defer func() {
+		tmpFile.Close()
+		os.Remove(tmpFileName)
+	}()
+	
+	if _, err := tmpFile.WriteString(prompt); err != nil {
+		return fmt.Errorf("failed to write prompt to temp file: %w", err)
+	}
+	tmpFile.Close()
+
+	// Execute claude CLI with --print flag using direct command execution
+	args := p.buildArgs("--print")
+	cmd := exec.CommandContext(ctx, p.cliPath, args...)
+	
+	// Set stdin to read from temp file
+	tmpFileForRead, err := os.Open(tmpFileName)
+	if err != nil {
+		return fmt.Errorf("failed to open temp file for reading: %w", err)
+	}
+	defer tmpFileForRead.Close()
+	cmd.Stdin = tmpFileForRead
+	
+	// Set environment variables to prevent TTY issues
+	cmd.Env = append(os.Environ(), 
+		"CI=true",
+		"TERM=dumb", 
+		"NO_COLOR=1",
+		"FORCE_COLOR=0",
+	)
 
 	// Get stdout and stderr pipes
 	stdout, err := cmd.StdoutPipe()
@@ -191,9 +227,16 @@ func (p *ClaudeProvider) StreamResponse(ctx context.Context, prompt string, chat
 		return fmt.Errorf("failed to start claude CLI: %w", err)
 	}
 	
-	// Log any errors
+	// Handle stderr with proper error handling and synchronization
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
-		stderrBytes, _ := io.ReadAll(stderr)
+		defer wg.Done()
+		stderrBytes, err := io.ReadAll(stderr)
+		if err != nil {
+			utils.Error("Claude CLI stderr read error: %v", err)
+			return
+		}
 		if len(stderrBytes) > 0 {
 			utils.Error("Claude CLI stderr: %s", string(stderrBytes))
 			fmt.Fprintf(logFile, "\nERROR: %s\n", string(stderrBytes))
@@ -207,6 +250,9 @@ func (p *ClaudeProvider) StreamResponse(ctx context.Context, prompt string, chat
 	if _, err := io.Copy(multiWriter, stdout); err != nil {
 		return fmt.Errorf("failed to copy output: %w", err)
 	}
+
+	// Wait for stderr goroutine to complete
+	wg.Wait()
 
 	// Add newline to log
 	fmt.Fprintf(logFile, "\n")

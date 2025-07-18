@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"ai-gateway-hub/internal/config"
 	"ai-gateway-hub/internal/i18n"
 
 	"github.com/gin-gonic/gin"
@@ -9,11 +10,17 @@ import (
 // I18nMiddleware adds language detection and template functions
 func I18nMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Get language from Accept-Language header or query parameter
+		// Priority order: query parameter > cookie > Accept-Language header
 		lang := c.Query("lang")
 		if lang == "" {
-			acceptLang := c.GetHeader("Accept-Language")
-			lang = i18n.GetLanguageFromAcceptHeader(acceptLang)
+			// Check for language preference cookie
+			if cookieLang, err := c.Cookie("lang"); err == nil && cookieLang != "" {
+				lang = cookieLang
+			}
+		}
+		if lang == "" {
+			// Use default language from configuration
+			lang = config.DefaultLanguage
 		}
 		
 		// Store language in context

@@ -83,8 +83,8 @@ ai-gateway-hub/
 │   │   ├── layout.html
 │   │   ├── index.html
 │   │   ├── chat.html
-│   │   ├── error.html
-│   │   └── partials/
+│   │   ├── settings.html
+│   │   └── error.html
 ├── locales/                   # i18n files
 │   ├── en/
 │   │   └── messages.json

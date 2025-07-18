@@ -1,0 +1,361 @@
+{{define "pages/index.html"}}
+<!DOCTYPE html>
+<html lang="ja" x-data="themeManager()" x-init="initTheme(); $watch('darkMode', val => localStorage.setItem('darkMode', val))" :class="{ 'dark': darkMode }">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.title}} - {{T .lang "app.title"}}</title>
+    
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.0/dist/cdn.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#10B981',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Custom styles -->
+    <style>
+        [x-cloak] { display: none !important; }
+        .scrollbar-thin::-webkit-scrollbar { width: 6px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: #f1f1f1; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: #888; border-radius: 3px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: #555; }
+        .dark .scrollbar-thin::-webkit-scrollbar-track { background: #374151; }
+        .dark .scrollbar-thin::-webkit-scrollbar-thumb { background: #6B7280; }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+    <div class="min-h-screen flex flex-col">
+        {{template "header-basic" .}}
+        
+        <!-- Main content -->
+        <main class="flex-1">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" x-data="chatList()">
+                <!-- Hero section -->
+                <div class="text-center mb-12">
+                    <h1 class="text-4xl font-bold mb-4">{{T .lang "home.hero.title"}}</h1>
+                    <p class="text-xl text-gray-600 dark:text-gray-400">
+                        {{T .lang "home.hero.subtitle"}}
+                    </p>
+                </div>
+                
+                <!-- Create new chat -->
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
+                    <h2 class="text-2xl font-semibold mb-4">{{T .lang "home.newChat.title"}}</h2>
+                    
+                    <form @submit.prevent="createChat" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-2">{{T .lang "home.newChat.chatTitle"}}</label>
+                            <input 
+                                type="text" 
+                                x-model="newChat.title" 
+                                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700"
+                                placeholder="{{T .lang "home.newChat.chatTitlePlaceholder"}}"
+                                required
+                            >
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium mb-2">{{T .lang "home.newChat.provider"}}</label>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <template x-for="provider in providers" :key="provider.id">
+                                    <label class="relative">
+                                        <input 
+                                            type="radio" 
+                                            :value="provider.id" 
+                                            x-model="newChat.provider"
+                                            :disabled="!provider.available"
+                                            class="sr-only peer"
+                                        >
+                                        <div class="p-4 border-2 rounded-lg cursor-pointer transition-all peer-checked:border-primary peer-checked:bg-primary/10 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed" :class="provider.available ? 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500' : 'border-gray-200 dark:border-gray-700'">
+                                            <div class="flex items-start justify-between">
+                                                <div class="flex-1">
+                                                    <h3 class="font-semibold" x-text="provider.name"></h3>
+                                                    <p class="text-sm text-gray-600 dark:text-gray-400" x-text="provider.description"></p>
+                                                    <div class="mt-2 text-xs" x-show="provider.status">
+                                                        <span 
+                                                            class="inline-flex items-center px-2 py-1 rounded-full"
+                                                            :class="{
+                                                                'bg-green-100 text-green-800 dark:bg-green-800/20 dark:text-green-400': provider.status === 'ready',
+                                                                'bg-red-100 text-red-800 dark:bg-red-800/20 dark:text-red-400': provider.status === 'not_installed',
+                                                                'bg-yellow-100 text-yellow-800 dark:bg-yellow-800/20 dark:text-yellow-400': provider.status === 'not_configured',
+                                                                'bg-red-100 text-red-800 dark:bg-red-800/20 dark:text-red-400': provider.status === 'error'
+                                                            }"
+                                                        >
+                                                            <span class="w-2 h-2 rounded-full mr-1.5"
+                                                                :class="{
+                                                                    'bg-green-600 dark:bg-green-400': provider.status === 'ready',
+                                                                    'bg-red-600 dark:bg-red-400': provider.status === 'not_installed' || provider.status === 'error',
+                                                                    'bg-yellow-600 dark:bg-yellow-400': provider.status === 'not_configured'
+                                                                }"
+                                                            ></span>
+                                                            <span x-text="provider.details || provider.status"></span>
+                                                        </span>
+                                                        <span x-show="provider.version" class="ml-2 text-gray-500 dark:text-gray-400" x-text="'v' + provider.version"></span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </label>
+                                </template>
+                            </div>
+                        </div>
+                        
+                        <button 
+                            type="submit" 
+                            :disabled="!newChat.provider || loading"
+                            class="w-full bg-primary text-white font-medium py-2 px-4 rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                            <span x-show="!loading">{{T .lang "home.newChat.submit"}}</span>
+                            <span x-show="loading">{{T .lang "home.newChat.submitting"}}</span>
+                        </button>
+                    </form>
+                </div>
+                
+                <!-- Recent chats -->
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+                    <h2 class="text-2xl font-semibold mb-4">{{T .lang "home.recentChats.title"}}</h2>
+                    
+                    <!-- Debug info -->
+                    <div class="text-xs text-gray-500 mb-2">
+                        <span>Chats loaded: <span x-text="chats.length"></span></span>
+                    </div>
+                    
+                    <div x-show="chats.length === 0" x-cloak class="text-center py-8 text-gray-500 dark:text-gray-400">
+                        {{T .lang "home.recentChats.empty"}}
+                    </div>
+                    
+                    <div x-show="chats.length > 0" x-cloak class="space-y-3">
+                        <template x-for="chat in chats" :key="chat.id">
+                            <div class="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                <a :href="`/chat/${chat.id}`" class="flex-1">
+                                    <h3 class="font-medium" x-text="chat.title"></h3>
+                                    <div class="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                        <span x-text="chat.provider"></span>
+                                        <span x-text="formatDate(chat.updated_at)"></span>
+                                    </div>
+                                </a>
+                                
+                                <button 
+                                    @click="deleteChat(chat.id)" 
+                                    class="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                    :title="'{{T .lang "home.recentChats.delete"}}'"
+                                >
+                                    {{template "icon-delete" .}}
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        {{template "footer" .}}
+    </div>
+    
+    <script>
+        function themeManager() {
+            return {
+                darkMode: false,
+                currentTheme: 'light',
+                
+                initTheme() {
+                    const savedTheme = localStorage.getItem('theme') || 'light';
+                    this.currentTheme = savedTheme;
+                    
+                    if (savedTheme === 'dark') {
+                        this.darkMode = true;
+                    } else if (savedTheme === 'light') {
+                        this.darkMode = false;
+                    } else if (savedTheme === 'auto') {
+                        this.darkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    } else {
+                        // Fallback to darkMode localStorage for backwards compatibility
+                        this.darkMode = localStorage.getItem('darkMode') === 'true';
+                    }
+                },
+                
+                getCurrentTheme() {
+                    return this.currentTheme;
+                },
+                
+                getThemeButtonTitle() {
+                    const theme = this.getCurrentTheme();
+                    switch(theme) {
+                        case 'light': return 'Light Mode (click for Dark)';
+                        case 'dark': return 'Dark Mode (click for Auto)';
+                        case 'auto': return 'Auto Mode (click for Light)';
+                        default: return 'Light Mode';
+                    }
+                },
+                
+                toggleTheme() {
+                    // Cycle through: light -> dark -> auto -> light
+                    const currentTheme = this.getCurrentTheme();
+                    let newTheme;
+                    
+                    switch(currentTheme) {
+                        case 'light':
+                            newTheme = 'dark';
+                            this.darkMode = true;
+                            break;
+                        case 'dark':
+                            newTheme = 'auto';
+                            this.darkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                            break;
+                        case 'auto':
+                            newTheme = 'light';
+                            this.darkMode = false;
+                            break;
+                        default:
+                            newTheme = 'light';
+                            this.darkMode = false;
+                    }
+                    
+                    // Update reactive property
+                    this.currentTheme = newTheme;
+                    
+                    // Save theme preference
+                    localStorage.setItem('theme', newTheme);
+                    localStorage.setItem('darkMode', this.darkMode.toString());
+                    
+                    // Update cookie for server-side persistence
+                    document.cookie = `theme=${newTheme}; path=/; max-age=${30*24*3600}`; // 30 days
+                    
+                    // Dispatch custom event to notify other components
+                    window.dispatchEvent(new CustomEvent('themeChanged', { 
+                        detail: { theme: newTheme, darkMode: this.darkMode }
+                    }));
+                },
+                
+                // Legacy method for backward compatibility
+                toggleDarkMode() {
+                    this.toggleTheme();
+                }
+            }
+        }
+
+        function chatList() {
+            return {
+                providers: [],
+                chats: [],
+                newChat: {
+                    title: '',
+                    provider: ''
+                },
+                loading: false,
+                
+                async init() {
+                    console.log('Initializing chat list...');
+                    // Load chats and providers in parallel - don't wait for providers
+                    this.loadChats();
+                    this.loadProviders();
+                    console.log('Chats after loading:', this.chats);
+                },
+                
+                async loadProviders() {
+                    try {
+                        const response = await fetch('/api/providers');
+                        this.providers = await response.json();
+                        
+                        // Select first available provider by default
+                        const availableProvider = this.providers.find(p => p.available);
+                        if (availableProvider) {
+                            this.newChat.provider = availableProvider.id;
+                        }
+                    } catch (error) {
+                        console.error('Failed to load providers:', error);
+                    }
+                },
+                
+                async loadChats() {
+                    try {
+                        const response = await fetch('/api/chats');
+                        const data = await response.json();
+                        console.log('Loaded chats:', data);
+                        this.chats = data;
+                    } catch (error) {
+                        console.error('Failed to load chats:', error);
+                    }
+                },
+                
+                async createChat() {
+                    if (!this.newChat.title || !this.newChat.provider) return;
+                    
+                    this.loading = true;
+                    try {
+                        const response = await fetch('/api/chats', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(this.newChat)
+                        });
+                        
+                        if (response.ok) {
+                            const chat = await response.json();
+                            window.location.href = `/chat/${chat.id}`;
+                        } else {
+                            alert('{{T .lang "error.failedToCreateChat"}}');
+                        }
+                    } catch (error) {
+                        console.error('Failed to create chat:', error);
+                        alert('{{T .lang "error.failedToCreateChat"}}');
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                
+                async deleteChat(id) {
+                    if (!confirm('{{T .lang "home.recentChats.confirmDelete"}}')) return;
+                    
+                    try {
+                        const response = await fetch(`/api/chats/${id}`, {
+                            method: 'DELETE'
+                        });
+                        
+                        if (response.ok) {
+                            this.chats = this.chats.filter(c => c.id !== id);
+                        } else {
+                            alert('{{T .lang "error.failedToDeleteChat"}}');
+                        }
+                    } catch (error) {
+                        console.error('Failed to delete chat:', error);
+                        alert('{{T .lang "error.failedToDeleteChat"}}');
+                    }
+                },
+                
+                formatDate(dateString) {
+                    const date = new Date(dateString);
+                    const now = new Date();
+                    const diffMs = now - date;
+                    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                    
+                    if (diffDays === 0) {
+                        return '{{T .lang "time.today"}}';
+                    } else if (diffDays === 1) {
+                        return '{{T .lang "time.yesterday"}}';
+                    } else if (diffDays < 7) {
+                        return `{{T .lang "time.daysAgo"}}`.replace('%d', diffDays);
+                    } else {
+                        return date.toLocaleDateString();
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
+{{end}}

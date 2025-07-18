@@ -3,7 +3,9 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
+	"ai-gateway-hub/internal/config"
 	"ai-gateway-hub/internal/services"
 
 	"github.com/gin-gonic/gin"
@@ -146,6 +148,72 @@ func GetProviderStatusHandler(registry *services.ProviderRegistry) gin.HandlerFu
 			"status":    status.Status,
 			"version":   status.Version,
 			"details":   status.Details,
+		})
+	}
+}
+
+// GetSettingsHandler returns current settings
+func GetSettingsHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Get current language from context (set by i18n middleware)
+		currentLang := c.GetString("lang")
+		if currentLang == "" {
+			currentLang = config.DefaultLanguage
+		}
+		
+		// Get theme from cookie if available
+		currentTheme := config.DefaultTheme
+		if themeCookie, err := c.Cookie("theme"); err == nil && themeCookie != "" {
+			currentTheme = themeCookie
+		}
+		
+		c.JSON(http.StatusOK, gin.H{
+			"language": currentLang,
+			"theme":    currentTheme,
+		})
+	}
+}
+
+// UpdateSettingsHandler updates user settings
+func UpdateSettingsHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			Language string `json:"language"`
+			Theme    string `json:"theme"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Invalid request: " + err.Error(),
+			})
+			return
+		}
+
+		// Validate language
+		if !config.IsValidLanguage(req.Language) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Unsupported language. Supported languages: " + strings.Join(config.SupportedLanguages, ", "),
+			})
+			return
+		}
+
+		// Validate theme
+		if !config.IsValidTheme(req.Theme) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Unsupported theme. Supported themes: " + strings.Join(config.SupportedThemes, ", "),
+			})
+			return
+		}
+
+		// Set preference cookies with security flags
+		secure := c.Request.TLS != nil // Use secure flag for HTTPS connections
+		c.SetCookie("lang", req.Language, 30*24*3600, "/", "", secure, true)  // 30 days, httpOnly
+		c.SetCookie("theme", req.Theme, 30*24*3600, "/", "", secure, true)    // 30 days, httpOnly
+		
+		c.JSON(http.StatusOK, gin.H{
+			"message":  "Settings updated successfully",
+			"language": req.Language,
+			"theme":    req.Theme,
 		})
 	}
 }
