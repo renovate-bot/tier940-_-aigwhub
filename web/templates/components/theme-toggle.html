@@ -2,15 +2,15 @@
 <!-- Theme toggle (light/dark/auto) -->
 <button @click="toggleTheme()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" :title="getThemeButtonTitle()">
     <!-- Light mode icon -->
-    <div x-show="getCurrentTheme() === 'light'">
+    <div x-show="currentTheme === 'light'">
         {{template "icon-sun" .}}
     </div>
     <!-- Dark mode icon -->
-    <div x-show="getCurrentTheme() === 'dark'">
+    <div x-show="currentTheme === 'dark'">
         {{template "icon-moon" .}}
     </div>
     <!-- Auto mode icon -->
-    <div x-show="getCurrentTheme() === 'auto'">
+    <div x-show="currentTheme === 'auto'">
         {{template "icon-monitor" .}}
     </div>
 </button>

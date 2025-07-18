@@ -161,52 +161,91 @@ func (p *ClaudeProvider) SendPrompt(ctx context.Context, prompt string, chatID i
 	}, nil
 }
 
+// StreamResponse streams Claude CLI response to the provided writer
 func (p *ClaudeProvider) StreamResponse(ctx context.Context, prompt string, chatID int64, writer io.Writer) error {
-	// Create log file for this chat
-	logPath := fmt.Sprintf("%s/claude/chat_%d.log", p.logDir, chatID)
-	logFile, err := utils.CreateFile(logPath)
+	// Setup logging
+	logFile, err := p.setupLogging(chatID, prompt)
 	if err != nil {
 		return err
 	}
 	defer logFile.Close()
 
+	// Prepare temporary file for prompt
+	tmpFileName, cleanup, err := p.createTempPromptFile(prompt)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+
+	// Setup and start Claude CLI command
+	cmd, stdout, stderr, err := p.setupClaudeCommand(ctx, tmpFileName)
+	if err != nil {
+		return err
+	}
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start claude CLI: %w", err)
+	}
+
+	// Handle command execution and output
+	return p.handleCommandExecution(cmd, stdout, stderr, writer, logFile)
+}
+
+// setupLogging creates and initializes the log file for the chat
+func (p *ClaudeProvider) setupLogging(chatID int64, prompt string) (*os.File, error) {
+	logPath := fmt.Sprintf("%s/claude/chat_%d.log", p.logDir, chatID)
+	logFile, err := utils.CreateFile(logPath)
+	if err != nil {
+		return nil, err
+	}
+
 	// Log the prompt
 	fmt.Fprintf(logFile, "USER: %s\n", prompt)
 	fmt.Fprintf(logFile, "ASSISTANT: ")
 
-	// Create a temporary file for the prompt to avoid stdin issues
+	return logFile, nil
+}
+
+// createTempPromptFile creates a temporary file with the prompt content
+func (p *ClaudeProvider) createTempPromptFile(prompt string) (string, func(), error) {
 	tmpFile, err := os.CreateTemp("", "claude-prompt-*.txt")
 	if err != nil {
-		return fmt.Errorf("failed to create temp file: %w", err)
+		return "", nil, fmt.Errorf("failed to create temp file: %w", err)
 	}
 	tmpFileName := tmpFile.Name()
-	// Ensure cleanup - file will be closed first, then removed
-	defer func() {
+
+	// Cleanup function
+	cleanup := func() {
 		tmpFile.Close()
 		os.Remove(tmpFileName)
-	}()
-	
+	}
+
 	if _, err := tmpFile.WriteString(prompt); err != nil {
-		return fmt.Errorf("failed to write prompt to temp file: %w", err)
+		cleanup()
+		return "", nil, fmt.Errorf("failed to write prompt to temp file: %w", err)
 	}
 	tmpFile.Close()
 
-	// Execute claude CLI with --print flag using direct command execution
+	return tmpFileName, cleanup, nil
+}
+
+// setupClaudeCommand creates and configures the Claude CLI command
+func (p *ClaudeProvider) setupClaudeCommand(ctx context.Context, tmpFileName string) (*exec.Cmd, io.ReadCloser, io.ReadCloser, error) {
+	// Build command arguments
 	args := p.buildArgs("--print")
 	cmd := exec.CommandContext(ctx, p.cliPath, args...)
-	
+
 	// Set stdin to read from temp file
 	tmpFileForRead, err := os.Open(tmpFileName)
 	if err != nil {
-		return fmt.Errorf("failed to open temp file for reading: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to open temp file for reading: %w", err)
 	}
-	defer tmpFileForRead.Close()
 	cmd.Stdin = tmpFileForRead
-	
+
 	// Set environment variables to prevent TTY issues
-	cmd.Env = append(os.Environ(), 
+	cmd.Env = append(os.Environ(),
 		"CI=true",
-		"TERM=dumb", 
+		"TERM=dumb",
 		"NO_COLOR=1",
 		"FORCE_COLOR=0",
 	)
@@ -214,17 +253,28 @@ func (p *ClaudeProvider) StreamResponse(ctx context.Context, prompt string, chat
 	// Get stdout and stderr pipes
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return fmt.Errorf("failed to get stdout pipe: %w", err)
-	}
-	
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return fmt.Errorf("failed to get stderr pipe: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to get stdout pipe: %w", err)
 	}
 
-	// Start the command
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start claude CLI: %w", err)
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to get stderr pipe: %w", err)
+	}
+
+	return cmd, stdout, stderr, nil
+}
+
+// handleCommandExecution manages the execution and output handling of the Claude CLI command
+func (p *ClaudeProvider) handleCommandExecution(cmd *exec.Cmd, stdout, stderr io.ReadCloser, writer io.Writer, logFile *os.File) error {
+	// Ensure stdout and stderr are closed properly
+	defer stdout.Close()
+	defer stderr.Close()
+	
+	// Close stdin file if it exists
+	if cmd.Stdin != nil {
+		if file, ok := cmd.Stdin.(*os.File); ok {
+			defer file.Close()
+		}
 	}
 	
 	// Handle stderr with proper error handling and synchronization
@@ -232,15 +282,7 @@ func (p *ClaudeProvider) StreamResponse(ctx context.Context, prompt string, chat
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		stderrBytes, err := io.ReadAll(stderr)
-		if err != nil {
-			utils.Error("Claude CLI stderr read error: %v", err)
-			return
-		}
-		if len(stderrBytes) > 0 {
-			utils.Error("Claude CLI stderr: %s", string(stderrBytes))
-			fmt.Fprintf(logFile, "\nERROR: %s\n", string(stderrBytes))
-		}
+		p.handleStderr(stderr, logFile)
 	}()
 
 	// Create multi-writer to write to both output and log
@@ -263,6 +305,19 @@ func (p *ClaudeProvider) StreamResponse(ctx context.Context, prompt string, chat
 	}
 
 	return nil
+}
+
+// handleStderr processes stderr output from the Claude CLI command
+func (p *ClaudeProvider) handleStderr(stderr io.ReadCloser, logFile *os.File) {
+	stderrBytes, err := io.ReadAll(stderr)
+	if err != nil {
+		utils.Error("Claude CLI stderr read error: %v", err)
+		return
+	}
+	if len(stderrBytes) > 0 {
+		utils.Error("Claude CLI stderr: %s", string(stderrBytes))
+		fmt.Fprintf(logFile, "\nERROR: %s\n", string(stderrBytes))
+	}
 }
 
 // loggingReader wraps a reader and logs its output

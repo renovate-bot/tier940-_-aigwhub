@@ -48,8 +48,14 @@ func main() {
 		log.Printf("No .env file found or failed to load: %v", err)
 	}
 
-	// Load configuration
-	cfg := config.Load()
+	// Load configuration with environment-specific settings
+	cfg := config.LoadWithEnvironment()
+
+	// Validate configuration
+	validationResult := config.ValidateEnvironment(cfg)
+	if !validationResult.Valid {
+		log.Fatalf("Configuration validation failed:\n%s", validationResult.Summary())
+	}
 
 	// Initialize logging early
 	utils.InitLogger(cfg.LogLevel)
@@ -62,7 +68,19 @@ func main() {
 		utils.SetAsDefaultLogger()
 	}
 	
-	utils.Info("AI Gateway Hub starting with log level: %s", cfg.LogLevel)
+	utils.Info("AI Gateway Hub starting...")
+	utils.Info("Environment: %s", config.GetCurrentEnvironment())
+	utils.Info("Log level: %s", cfg.LogLevel)
+	
+	// Log configuration warnings if any
+	if validationResult.HasWarnings() {
+		utils.Warn("Configuration warnings:\n%s", validationResult.Summary())
+	}
+	
+	// Log configuration summary in debug mode
+	if cfg.LogLevel == "debug" {
+		utils.Debug("Configuration summary:\n%s", config.ConfigSummary(cfg))
+	}
 
 	// Initialize i18n first - extract files if needed and initialize once
 	if err := initializeI18n(); err != nil {
@@ -98,25 +116,10 @@ func main() {
 	// Setup logging level and Gin mode based on configuration
 	setupLogging(cfg.LogLevel)
 
-	// Initialize Gin router
-	router := gin.Default()
-
-	// Setup middleware
-	router.Use(middleware.I18nMiddleware())
-
-	// Setup CORS
-	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept"},
-		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: true,
-	}))
-
-	// Static files are served from external directory if needed
-	// For now, static files are handled by external CDN (Tailwind CSS, Alpine.js)
-
-	// Load embedded HTML templates
+	// Initialize Gin router with custom logging
+	router := gin.New()
+	
+	// Load embedded HTML templates FIRST (before any routes or middleware)
 	templateFS, err := fs.Sub(templateFiles, "web/templates")
 	if err != nil {
 		log.Fatalf("Failed to create template file system: %v", err)
@@ -124,7 +127,7 @@ func main() {
 	
 	// Create template with functions - language will be passed via template data
 	tmpl := template.New("").Funcs(template.FuncMap{
-		"T": func(lang interface{}, key string, args ...interface{}) string {
+		"T": func(lang any, key string, args ...any) string {
 			langStr := "en"
 			if lang != nil {
 				if l, ok := lang.(string); ok && l != "" {
@@ -136,10 +139,45 @@ func main() {
 	})
 	tmpl = template.Must(tmpl.ParseFS(templateFS, "*.html", "pages/*.html", "components/*.html"))
 	router.SetHTMLTemplate(tmpl)
+	
+	// Add custom logging middleware that writes to our logger
+	router.Use(gin.LoggerWithWriter(utils.GetLogger().Out))
+	router.Use(gin.Recovery())
+
+	// Setup middleware
+	router.Use(middleware.I18nMiddleware())
+
+	// Setup CORS with environment-specific settings
+	corsConfig := cors.Config{
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+	}
+	
+	// Environment-specific CORS origins
+	if config.GetCurrentEnvironment() == config.Production {
+		// Production should use specific allowed origins
+		corsConfig.AllowOrigins = []string{
+			"https://yourdomain.com",
+			"https://www.yourdomain.com",
+		}
+	} else {
+		// Development allows all origins for easier testing
+		corsConfig.AllowOrigins = []string{"*"}
+	}
+	
+	router.Use(cors.New(corsConfig))
+
+	// Serve static files
+	router.Static("/static", cfg.StaticDir)
 
 	// Initialize WebSocket hub
 	hub := handlers.NewHub(sessionService, chatService, providerRegistry)
 	go hub.Run()
+
+	// Initialize API handlers with proper dependency injection
+	apiHandlers := handlers.NewAPIHandlers(log.Default())
 
 	// Setup routes
 	router.GET("/", handlers.IndexHandler())
@@ -150,13 +188,14 @@ func main() {
 	api := router.Group("/api")
 	{
 		api.GET("/health", handlers.HealthCheckHandler(redisClient, version))
-		api.GET("/chats", handlers.GetChatsHandler(chatService))
-		api.POST("/chats", handlers.CreateChatHandler(chatService))
-		api.DELETE("/chats/:id", handlers.DeleteChatHandler(chatService))
-		api.GET("/providers", handlers.GetProvidersHandler(providerRegistry))
-		api.GET("/providers/:id/status", handlers.GetProviderStatusHandler(providerRegistry))
-		api.GET("/settings", handlers.GetSettingsHandler())
-		api.POST("/settings", handlers.UpdateSettingsHandler())
+		api.GET("/chats", apiHandlers.GetChatsHandler(chatService))
+		api.POST("/chats", apiHandlers.CreateChatHandler(chatService))
+		api.DELETE("/chats/:id", apiHandlers.DeleteChatHandler(chatService))
+		api.GET("/providers", apiHandlers.GetProvidersHandler(providerRegistry))
+		api.GET("/providers/:id/status", apiHandlers.GetProviderStatusHandler(providerRegistry))
+		api.GET("/settings", apiHandlers.GetSettingsHandler())
+		api.POST("/settings", apiHandlers.UpdateSettingsHandler())
+		api.POST("/logs/client", apiHandlers.LogClientErrorHandler())
 	}
 
 	// WebSocket endpoint

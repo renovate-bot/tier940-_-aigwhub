@@ -77,8 +77,8 @@ __debug_bin
 /dist/
 /build/
 
-# Web static files (using CDN)
-web/static/
+# Web static files - now tracking custom JS/CSS for modular components
+# web/static/
 
 # Coverage reports
 coverage.txt

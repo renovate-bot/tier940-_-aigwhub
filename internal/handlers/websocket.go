@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,14 +18,84 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+const (
+	// WebSocket message size limit (512KB)
+	MaxWebSocketMessageSize = 512 * 1024
+)
+
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
-		// Allow all origins in development
-		// TODO: Restrict in production
-		return true
+		return checkWebSocketOrigin(r)
 	},
+}
+
+// checkWebSocketOrigin validates the origin of WebSocket connections
+func checkWebSocketOrigin(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		utils.Warn("WebSocket connection attempted without Origin header")
+		return false
+	}
+
+	// Get allowed origins from environment variable
+	allowedOrigins := os.Getenv("ALLOWED_WEBSOCKET_ORIGINS")
+	
+	// Default to development settings if not configured
+	if allowedOrigins == "" {
+		// Development mode: allow localhost and 127.0.0.1
+		if strings.Contains(origin, "localhost") || strings.Contains(origin, "127.0.0.1") || strings.Contains(origin, "172.18.0.1") {
+			return true
+		}
+		utils.Warn("WebSocket connection from unallowed origin in development: %s", origin)
+		return false
+	}
+
+	// Production mode: check against whitelist
+	origins := strings.Split(allowedOrigins, ",")
+	for _, allowedOrigin := range origins {
+		allowedOrigin = strings.TrimSpace(allowedOrigin)
+		if origin == allowedOrigin {
+			utils.Debug("WebSocket connection allowed from origin: %s", origin)
+			return true
+		}
+	}
+
+	utils.Warn("WebSocket connection rejected from disallowed origin: %s", origin)
+	return false
+}
+
+// authenticateWebSocketRequest performs basic authentication for WebSocket connections
+// This is a simple implementation - you should enhance this based on your authentication system
+func authenticateWebSocketRequest(r *http.Request) bool {
+	// Option 1: Check for session cookie (if you're using cookie-based sessions)
+	sessionCookie, err := r.Cookie("session_id")
+	if err != nil || sessionCookie.Value == "" {
+		// No session cookie, check for Authorization header
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			// For development: allow connections without authentication
+			// In production: return false
+			env := os.Getenv("ENVIRONMENT")
+			if env == "development" || env == "" {
+				utils.Debug("WebSocket connection allowed without authentication in development mode")
+				return true
+			}
+			utils.Warn("WebSocket connection missing authentication")
+			return false
+		}
+		
+		// TODO: Validate Authorization header (Bearer token, etc.)
+		// For now, accept any Authorization header
+		utils.Debug("WebSocket connection authenticated via Authorization header")
+		return true
+	}
+
+	// TODO: Validate session cookie with your session store
+	// For now, accept any session cookie
+	utils.Debug("WebSocket connection authenticated via session cookie: %s", sessionCookie.Value[:8]+"...")
+	return true
 }
 
 // Client represents a WebSocket client
@@ -69,7 +141,7 @@ func (h *Hub) Run() {
 			h.mu.Lock()
 			h.clients[client] = true
 			h.mu.Unlock()
-			utils.Debug("Client registered: %p", client)
+			utils.Debug("WebSocket client registered: %p", client)
 
 		case client := <-h.unregister:
 			h.mu.Lock()
@@ -77,7 +149,7 @@ func (h *Hub) Run() {
 				delete(h.clients, client)
 				close(client.send)
 				h.mu.Unlock()
-				utils.Debug("Client unregistered: %p", client)
+				utils.Debug("WebSocket client unregistered: %p", client)
 			} else {
 				h.mu.Unlock()
 			}
@@ -100,11 +172,21 @@ func (h *Hub) Run() {
 // WebSocketHandler handles WebSocket connections
 func WebSocketHandler(hub *Hub) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// Basic authentication check - you can enhance this based on your auth system
+		if !authenticateWebSocketRequest(c.Request) {
+			utils.Warn("WebSocket authentication failed for %s", c.ClientIP())
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+
 		conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 		if err != nil {
 			utils.Error("WebSocket upgrade failed: %v", err)
 			return
 		}
+
+		// Set message size limit for security
+		conn.SetReadLimit(MaxWebSocketMessageSize) // 512KB max message size
 
 		client := &Client{
 			hub:  hub,
@@ -113,6 +195,7 @@ func WebSocketHandler(hub *Hub) gin.HandlerFunc {
 		}
 
 		client.hub.register <- client
+		utils.Debug("WebSocket client authenticated and registered: %s", c.ClientIP())
 
 		// Start goroutines for reading and writing
 		go client.writePump()
@@ -156,7 +239,7 @@ func (c *Client) readPump() {
 		case "session_status":
 			c.handleSessionStatus(msg.Data)
 		default:
-			utils.Warn("Unknown message type: %s", msg.Type)
+			utils.Warn("Unknown WebSocket message type: %s", msg.Type)
 		}
 	}
 }
@@ -224,27 +307,13 @@ func (c *Client) handleAIPrompt(data models.WSMsgData) {
 		writer := &websocketWriter{client: c, buffer: &responseContent}
 
 		err := provider.StreamResponse(ctx, data.Content, data.ChatID, writer)
+		
+		// Always send completion message to indicate end of streaming
+		c.sendStreamCompletion(data.ChatID)
+		
 		if err != nil {
 			c.sendError("Failed to get response: " + err.Error())
 			return
-		}
-
-		// Send completion message
-		msg := models.WebSocketMessage{
-			Type: "ai_response",
-			Data: models.WSMsgData{
-				ChatID:    data.ChatID,
-				Provider:  data.Provider,
-				Content:   "",
-				Timestamp: time.Now(),
-				Stream:    false,
-			},
-		}
-		if msgData, err := json.Marshal(msg); err == nil {
-			select {
-			case c.send <- msgData:
-			default:
-			}
 		}
 
 		// Save assistant message
@@ -286,6 +355,31 @@ func (c *Client) sendError(message string) {
 	case c.send <- data:
 	default:
 		utils.Error("Failed to send error message to client")
+	}
+}
+
+// sendStreamCompletion sends a stream completion message to the client
+func (c *Client) sendStreamCompletion(chatID int64) {
+	msg := models.WebSocketMessage{
+		Type: "ai_response_end",
+		Data: models.WSMsgData{
+			ChatID:    chatID,
+			Provider:  c.provider,
+			Timestamp: time.Now(),
+		},
+	}
+
+	data, err := json.Marshal(msg)
+	if err != nil {
+		utils.Error("Failed to marshal stream completion message: %v", err)
+		return
+	}
+
+	select {
+	case c.send <- data:
+		utils.Debug("Stream completion sent for chat %d", chatID)
+	default:
+		utils.Error("Failed to send stream completion message to client")
 	}
 }
 
