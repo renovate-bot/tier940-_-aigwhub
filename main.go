@@ -88,7 +88,7 @@ func main() {
 	// Initialize services
 	sessionService := services.NewSessionService(redisClient)
 	chatService := services.NewChatService(db)
-	providerRegistry := services.NewProviderRegistry()
+	providerRegistry := services.NewProviderRegistry(redisClient)
 	
 	// Register providers
 	if err := providerRegistry.RegisterDefaultProviders(cfg); err != nil {
@@ -153,6 +153,7 @@ func main() {
 		api.POST("/chats", handlers.CreateChatHandler(chatService))
 		api.DELETE("/chats/:id", handlers.DeleteChatHandler(chatService))
 		api.GET("/providers", handlers.GetProvidersHandler(providerRegistry))
+		api.GET("/providers/:id/status", handlers.GetProviderStatusHandler(providerRegistry))
 	}
 
 	// WebSocket endpoint

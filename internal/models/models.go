@@ -53,6 +53,9 @@ type Provider struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Available   bool   `json:"available"`
+	Status      string `json:"status,omitempty"`  // "ready", "not_installed", "not_configured", "error"
+	Version     string `json:"version,omitempty"`
+	Details     string `json:"details,omitempty"`
 }
 
 // NullTime implements sql.Scanner and driver.Valuer for nullable time fields

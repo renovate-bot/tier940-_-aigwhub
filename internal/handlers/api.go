@@ -116,3 +116,36 @@ func GetProvidersHandler(registry *services.ProviderRegistry) gin.HandlerFunc {
 		c.JSON(http.StatusOK, providers)
 	}
 }
+
+// GetProviderStatusHandler returns the cached status of a specific provider
+func GetProviderStatusHandler(registry *services.ProviderRegistry) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		providerID := c.Param("id")
+		
+		provider, err := registry.Get(providerID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "Provider not found",
+			})
+			return
+		}
+		
+		// Use cached status for better performance
+		status, err := registry.GetProviderStatus(providerID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to get provider status",
+			})
+			return
+		}
+		
+		c.JSON(http.StatusOK, gin.H{
+			"id":        provider.GetID(),
+			"name":      provider.GetName(),
+			"available": status.Available,
+			"status":    status.Status,
+			"version":   status.Version,
+			"details":   status.Details,
+		})
+	}
+}

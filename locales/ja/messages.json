@@ -1,52 +1,85 @@
 {
-  "app.title": "AI Gateway Hub",
-  "app.description": "複数のAI CLIツールをブラウザで利用できるモダンなWebインターフェース",
-  "app.footer": "© 2025 AI Gateway Hub. Powered by Go, Alpine.js, and Tailwind CSS.",
+  "app": {
+    "title": "AI Gateway Hub",
+    "description": "複数のAI CLIツールをブラウザで利用できるモダンなWebインターフェース",
+    "footer": "© 2025 AI Gateway Hub. Powered by Go, Alpine.js, and Tailwind CSS."
+  },
   
-  "nav.home": "ホーム",
-  "nav.back": "戻る",
-  "nav.darkMode": "ダークモード",
-  "nav.lightMode": "ライトモード",
+  "nav": {
+    "home": "ホーム",
+    "back": "戻る",
+    "darkMode": "ダークモード",
+    "lightMode": "ライトモード"
+  },
   
-  "home.hero.title": "AI Gateway Hub",
-  "home.hero.subtitle": "複数のAI CLIツールをブラウザで利用できるモダンなWebインターフェース",
-  "home.newChat.title": "新しいチャットを開始",
-  "home.newChat.chatTitle": "チャットタイトル",
-  "home.newChat.chatTitlePlaceholder": "例: プロジェクトの実装について",
-  "home.newChat.provider": "AIプロバイダー",
-  "home.newChat.providerUnavailable": "利用不可",
-  "home.newChat.submit": "チャットを開始",
-  "home.newChat.submitting": "作成中...",
-  "home.recentChats.title": "最近のチャット",
-  "home.recentChats.empty": "まだチャットがありません",
-  "home.recentChats.delete": "削除",
-  "home.recentChats.confirmDelete": "このチャットを削除してもよろしいですか？",
+  "home": {
+    "hero": {
+      "title": "AI Gateway Hub",
+      "subtitle": "複数のAI CLIツールをブラウザで利用できるモダンなWebインターフェース"
+    },
+    "newChat": {
+      "title": "新しいチャットを開始",
+      "chatTitle": "チャットタイトル",
+      "chatTitlePlaceholder": "例: プロジェクトの実装について",
+      "provider": "AIプロバイダー",
+      "providerUnavailable": "利用不可",
+      "submit": "チャットを開始",
+      "submitting": "作成中..."
+    },
+    "recentChats": {
+      "title": "最近のチャット",
+      "empty": "まだチャットがありません",
+      "delete": "削除",
+      "confirmDelete": "このチャットを削除してもよろしいですか？"
+    }
+  },
   
-  "chat.connected": "接続中",
-  "chat.disconnected": "切断",
-  "chat.you": "あなた",
-  "chat.messagePlaceholder": "メッセージを入力...",
-  "chat.send": "送信",
-  "chat.reconnecting": "再接続中...",
+  "chat": {
+    "connected": "接続中",
+    "disconnected": "切断",
+    "you": "あなた",
+    "messagePlaceholder": "メッセージを入力...",
+    "send": "送信",
+    "reconnecting": "再接続中..."
+  },
   
-  "error.title": "エラーが発生しました",
-  "error.backHome": "ホームに戻る",
-  "error.chatNotFound": "チャットが見つかりません",
-  "error.invalidChatId": "無効なチャットID",
-  "error.failedToLoadMessages": "メッセージの読み込みに失敗しました",
-  "error.failedToCreateChat": "チャットの作成に失敗しました",
-  "error.failedToDeleteChat": "チャットの削除に失敗しました",
-  "error.websocketError": "WebSocket接続エラー",
+  "error": {
+    "title": "エラーが発生しました",
+    "backHome": "ホームに戻る",
+    "chatNotFound": "チャットが見つかりません",
+    "invalidChatId": "無効なチャットID",
+    "failedToLoadMessages": "メッセージの読み込みに失敗しました",
+    "failedToCreateChat": "チャットの作成に失敗しました",
+    "failedToDeleteChat": "チャットの削除に失敗しました",
+    "websocketError": "WebSocket接続エラー"
+  },
   
-  "time.today": "今日",
-  "time.yesterday": "昨日",
-  "time.daysAgo": "%d日前",
+  "time": {
+    "today": "今日",
+    "yesterday": "昨日",
+    "daysAgo": "%d日前"
+  },
   
-  "api.healthy": "正常",
-  "api.unhealthy": "異常",
+  "api": {
+    "healthy": "正常",
+    "unhealthy": "異常"
+  },
   
-  "provider.claude.name": "Claude Code",
-  "provider.claude.description": "AnthropicのClaude AIアシスタント（CLI経由）",
-  "provider.gemini.name": "Gemini CLI",
-  "provider.gemini.description": "GoogleのGemini AIアシスタント（CLI経由）"
+  "provider": {
+    "claude": {
+      "name": "Claude Code",
+      "description": "AnthropicのClaude AIアシスタント（CLI経由）"
+    },
+    "gemini": {
+      "name": "Gemini CLI",
+      "description": "GoogleのGemini AIアシスタント（CLI経由）"
+    },
+    "status": {
+      "ready": "準備完了",
+      "notInstalled": "未インストール",
+      "notConfigured": "未設定",
+      "error": "エラー",
+      "checking": "ステータスを確認中..."
+    }
+  }
 }

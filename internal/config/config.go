@@ -44,77 +44,111 @@ type Config struct {
 
 // Load initializes and loads configuration from various sources
 func Load() *Config {
+	// Create new instance to avoid global state issues in tests
+	v := viper.New()
+	
 	// Set configuration name and type
-	viper.SetConfigName(".env")
-	viper.SetConfigType("env")
+	v.SetConfigName(".env")
+	v.SetConfigType("env")
 	
 	// Add config path
-	viper.AddConfigPath(".")
+	v.AddConfigPath(".")
 	
 	// Set default values
-	setDefaults()
+	setDefaultsForViper(v)
 	
 	// Enable environment variable reading
-	viper.AutomaticEnv()
+	v.AutomaticEnv()
 	
 	// Read configuration file if it exists
-	if err := viper.ReadInConfig(); err != nil {
+	if err := v.ReadInConfig(); err != nil {
 		// Config file not found or error reading - use defaults and env vars
 	}
 	
+	// Helper function to get int with fallback to default
+	getIntWithDefault := func(key string, defaultValue int) int {
+		val := v.GetInt(key)
+		if val == 0 && v.GetString(key) != "0" && v.GetString(key) != "" {
+			// Value is invalid, return default
+			return defaultValue
+		}
+		return val
+	}
+	
+	// Helper function to get bool with fallback to default
+	getBoolWithDefault := func(key string, defaultValue bool) bool {
+		str := v.GetString(key)
+		if str == "" {
+			return defaultValue
+		}
+		if str == "true" || str == "1" {
+			return true
+		}
+		if str == "false" || str == "0" {
+			return false
+		}
+		// Invalid value, return default
+		return defaultValue
+	}
+	
 	return &Config{
-		Port:         viper.GetString("PORT"),
-		SQLiteDBFile: viper.GetString("SQLITE_DB_FILE"),
-		RedisAddr:    viper.GetString("REDIS_ADDR"),
-		StaticDir:    viper.GetString("STATIC_DIR"),
-		TemplateDir:  viper.GetString("TEMPLATE_DIR"),
-		LogDir:       viper.GetString("LOG_DIR"),
-		LogLevel:     viper.GetString("LOG_LEVEL"),
+		Port:         v.GetString("PORT"),
+		SQLiteDBFile: v.GetString("SQLITE_DB_FILE"),
+		RedisAddr:    v.GetString("REDIS_ADDR"),
+		StaticDir:    v.GetString("STATIC_DIR"),
+		TemplateDir:  v.GetString("TEMPLATE_DIR"),
+		LogDir:       v.GetString("LOG_DIR"),
+		LogLevel:     v.GetString("LOG_LEVEL"),
 
-		MaxSessions:      viper.GetInt("MAX_SESSIONS"),
-		SessionTimeout:   time.Duration(viper.GetInt("SESSION_TIMEOUT")) * time.Second,
-		WebSocketTimeout: time.Duration(viper.GetInt("WEBSOCKET_TIMEOUT")) * time.Second,
+		MaxSessions:      getIntWithDefault("MAX_SESSIONS", 100),
+		SessionTimeout:   time.Duration(getIntWithDefault("SESSION_TIMEOUT", 3600)) * time.Second,
+		WebSocketTimeout: time.Duration(getIntWithDefault("WEBSOCKET_TIMEOUT", 7200)) * time.Second,
 
-		ClaudeCLIPath: viper.GetString("CLAUDE_CLI_PATH"),
-		GeminiCLIPath: viper.GetString("GEMINI_CLI_PATH"),
+		ClaudeCLIPath: v.GetString("CLAUDE_CLI_PATH"),
+		GeminiCLIPath: v.GetString("GEMINI_CLI_PATH"),
 
-		ClaudeSkipPermissions: viper.GetBool("CLAUDE_SKIP_PERMISSIONS"),
-		ClaudeExtraArgs:       viper.GetString("CLAUDE_EXTRA_ARGS"),
+		ClaudeSkipPermissions: getBoolWithDefault("CLAUDE_SKIP_PERMISSIONS", false),
+		ClaudeExtraArgs:       v.GetString("CLAUDE_EXTRA_ARGS"),
 
-		EnableProviderAutoDiscovery: viper.GetBool("ENABLE_PROVIDER_AUTO_DISCOVERY"),
-		EnableHealthChecks:          viper.GetBool("ENABLE_HEALTH_CHECKS"),
+		EnableProviderAutoDiscovery: getBoolWithDefault("ENABLE_PROVIDER_AUTO_DISCOVERY", true),
+		EnableHealthChecks:          getBoolWithDefault("ENABLE_HEALTH_CHECKS", true),
 	}
 }
 
 // setDefaults sets default configuration values
 func setDefaults() {
+	setDefaultsForViper(viper.GetViper())
+}
+
+// setDefaultsForViper sets default configuration values for a specific viper instance
+func setDefaultsForViper(v *viper.Viper) {
 	// Server Configuration
-	viper.SetDefault("PORT", "8080")
-	viper.SetDefault("SQLITE_DB_FILE", "./data/ai_gateway.db")
-	viper.SetDefault("REDIS_ADDR", "localhost:6379")
-	viper.SetDefault("STATIC_DIR", "./web/static")
-	viper.SetDefault("TEMPLATE_DIR", "./web/templates")
+	v.SetDefault("PORT", "8080")
+	v.SetDefault("SQLITE_DB_FILE", "./data/ai_gateway.db")
+	v.SetDefault("REDIS_ADDR", "localhost:6379")
+	v.SetDefault("STATIC_DIR", "./web/static")
+	v.SetDefault("TEMPLATE_DIR", "./web/templates")
 	
 	// Logging Configuration
-	viper.SetDefault("LOG_DIR", "./logs")
-	viper.SetDefault("LOG_LEVEL", "info")
+	v.SetDefault("LOG_DIR", "./logs")
+	v.SetDefault("LOG_LEVEL", "info")
 	
 	// Session Management
-	viper.SetDefault("MAX_SESSIONS", 100)
-	viper.SetDefault("SESSION_TIMEOUT", 3600)
-	viper.SetDefault("WEBSOCKET_TIMEOUT", 7200)
+	v.SetDefault("MAX_SESSIONS", 100)
+	v.SetDefault("SESSION_TIMEOUT", 3600)
+	v.SetDefault("WEBSOCKET_TIMEOUT", 7200)
 	
 	// AI Provider Configuration
-	viper.SetDefault("CLAUDE_CLI_PATH", "claude")
-	viper.SetDefault("GEMINI_CLI_PATH", "gemini")
+	v.SetDefault("CLAUDE_CLI_PATH", "claude")
+	v.SetDefault("GEMINI_CLI_PATH", "gemini")
 	
 	// Claude CLI Options
-	viper.SetDefault("CLAUDE_SKIP_PERMISSIONS", false)
-	viper.SetDefault("CLAUDE_EXTRA_ARGS", "")
+	v.SetDefault("CLAUDE_SKIP_PERMISSIONS", false)
+	v.SetDefault("CLAUDE_EXTRA_ARGS", "")
 	
 	// Feature Flags
-	viper.SetDefault("ENABLE_PROVIDER_AUTO_DISCOVERY", true)
-	viper.SetDefault("ENABLE_HEALTH_CHECKS", true)
+	v.SetDefault("ENABLE_PROVIDER_AUTO_DISCOVERY", true)
+	v.SetDefault("ENABLE_HEALTH_CHECKS", true)
 }
 
 // GetString returns a configuration value as string with environment variable support

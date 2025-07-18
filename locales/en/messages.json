@@ -1,52 +1,85 @@
 {
-  "app.title": "AI Gateway Hub",
-  "app.description": "A modern web interface for using multiple AI CLI tools in your browser",
-  "app.footer": "© 2025 AI Gateway Hub. Powered by Go, Alpine.js, and Tailwind CSS.",
+  "app": {
+    "title": "AI Gateway Hub",
+    "description": "A modern web interface for using multiple AI CLI tools in your browser",
+    "footer": "© 2025 AI Gateway Hub. Powered by Go, Alpine.js, and Tailwind CSS."
+  },
   
-  "nav.home": "Home",
-  "nav.back": "Back",
-  "nav.darkMode": "Dark Mode",
-  "nav.lightMode": "Light Mode",
+  "nav": {
+    "home": "Home",
+    "back": "Back",
+    "darkMode": "Dark Mode",
+    "lightMode": "Light Mode"
+  },
   
-  "home.hero.title": "AI Gateway Hub",
-  "home.hero.subtitle": "A modern web interface for using multiple AI CLI tools in your browser",
-  "home.newChat.title": "Start New Chat",
-  "home.newChat.chatTitle": "Chat Title",
-  "home.newChat.chatTitlePlaceholder": "e.g., Project Implementation",
-  "home.newChat.provider": "AI Provider",
-  "home.newChat.providerUnavailable": "Unavailable",
-  "home.newChat.submit": "Start Chat",
-  "home.newChat.submitting": "Creating...",
-  "home.recentChats.title": "Recent Chats",
-  "home.recentChats.empty": "No chats yet",
-  "home.recentChats.delete": "Delete",
-  "home.recentChats.confirmDelete": "Are you sure you want to delete this chat?",
+  "home": {
+    "hero": {
+      "title": "AI Gateway Hub",
+      "subtitle": "A modern web interface for using multiple AI CLI tools in your browser"
+    },
+    "newChat": {
+      "title": "Start New Chat",
+      "chatTitle": "Chat Title",
+      "chatTitlePlaceholder": "e.g., Project Implementation",
+      "provider": "AI Provider",
+      "providerUnavailable": "Unavailable",
+      "submit": "Start Chat",
+      "submitting": "Creating..."
+    },
+    "recentChats": {
+      "title": "Recent Chats",
+      "empty": "No chats yet",
+      "delete": "Delete",
+      "confirmDelete": "Are you sure you want to delete this chat?"
+    }
+  },
   
-  "chat.connected": "Connected",
-  "chat.disconnected": "Disconnected",
-  "chat.you": "You",
-  "chat.messagePlaceholder": "Type your message...",
-  "chat.send": "Send",
-  "chat.reconnecting": "Reconnecting...",
+  "chat": {
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "you": "You",
+    "messagePlaceholder": "Type your message...",
+    "send": "Send",
+    "reconnecting": "Reconnecting..."
+  },
   
-  "error.title": "An Error Occurred",
-  "error.backHome": "Back to Home",
-  "error.chatNotFound": "Chat not found",
-  "error.invalidChatId": "Invalid chat ID",
-  "error.failedToLoadMessages": "Failed to load messages",
-  "error.failedToCreateChat": "Failed to create chat",
-  "error.failedToDeleteChat": "Failed to delete chat",
-  "error.websocketError": "WebSocket connection error",
+  "error": {
+    "title": "An Error Occurred",
+    "backHome": "Back to Home",
+    "chatNotFound": "Chat not found",
+    "invalidChatId": "Invalid chat ID",
+    "failedToLoadMessages": "Failed to load messages",
+    "failedToCreateChat": "Failed to create chat",
+    "failedToDeleteChat": "Failed to delete chat",
+    "websocketError": "WebSocket connection error"
+  },
   
-  "time.today": "Today",
-  "time.yesterday": "Yesterday",
-  "time.daysAgo": "%d days ago",
+  "time": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "daysAgo": "%d days ago"
+  },
   
-  "api.healthy": "Healthy",
-  "api.unhealthy": "Unhealthy",
+  "api": {
+    "healthy": "Healthy",
+    "unhealthy": "Unhealthy"
+  },
   
-  "provider.claude.name": "Claude Code",
-  "provider.claude.description": "Anthropic's Claude AI assistant via CLI",
-  "provider.gemini.name": "Gemini CLI",
-  "provider.gemini.description": "Google's Gemini AI assistant via CLI"
+  "provider": {
+    "claude": {
+      "name": "Claude Code",
+      "description": "Anthropic's Claude AI assistant via CLI"
+    },
+    "gemini": {
+      "name": "Gemini CLI",
+      "description": "Google's Gemini AI assistant via CLI"
+    },
+    "status": {
+      "ready": "Ready",
+      "notInstalled": "Not Installed",
+      "notConfigured": "Not Configured",
+      "error": "Error",
+      "checking": "Checking status..."
+    }
+  }
 }

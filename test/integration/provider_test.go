@@ -175,7 +175,7 @@ func TestProviderRegistry(t *testing.T) {
 	utils.InitPathManager()
 
 	t.Run("RegisterAndGet", func(t *testing.T) {
-		registry := services.NewProviderRegistry()
+		registry := services.NewProviderRegistry(nil) // Pass nil for Redis client in tests
 		provider := providers.NewClaudeProvider("test-claude", "./logs", false, "")
 		
 		err := registry.Register(provider)
@@ -194,7 +194,7 @@ func TestProviderRegistry(t *testing.T) {
 	})
 
 	t.Run("RegisterDuplicate", func(t *testing.T) {
-		registry := services.NewProviderRegistry()
+		registry := services.NewProviderRegistry(nil) // Pass nil for Redis client in tests
 		provider1 := providers.NewClaudeProvider("duplicate", "./logs", false, "")
 		provider2 := providers.NewClaudeProvider("duplicate", "./logs", false, "")
 		
@@ -210,7 +210,7 @@ func TestProviderRegistry(t *testing.T) {
 	})
 
 	t.Run("GetNonExistent", func(t *testing.T) {
-		registry := services.NewProviderRegistry()
+		registry := services.NewProviderRegistry(nil) // Pass nil for Redis client in tests
 		
 		_, err := registry.Get("non-existent")
 		if err == nil {
@@ -219,7 +219,7 @@ func TestProviderRegistry(t *testing.T) {
 	})
 
 	t.Run("List", func(t *testing.T) {
-		registry := services.NewProviderRegistry()
+		registry := services.NewProviderRegistry(nil) // Pass nil for Redis client in tests
 		provider := providers.NewClaudeProvider("claude", "./logs", false, "")
 		
 		err := registry.Register(provider)
@@ -239,7 +239,7 @@ func TestProviderRegistry(t *testing.T) {
 	})
 
 	t.Run("RegisterDefaultProviders", func(t *testing.T) {
-		registry := services.NewProviderRegistry()
+		registry := services.NewProviderRegistry(nil) // Pass nil for Redis client in tests
 		
 		cfg := &config.Config{
 			LogDir:                "./test_logs",

@@ -77,7 +77,8 @@
                 </div>
             </div>
             
-            <div class="flex items-center space-x-2">
+            <div class="flex items-center space-x-4">
+                <!-- WebSocket connection status -->
                 <span x-show="connected" class="flex items-center text-sm text-green-600 dark:text-green-400">
                     <span class="w-2 h-2 bg-green-600 dark:bg-green-400 rounded-full mr-1"></span>
                     {{T .lang "chat.connected"}}
@@ -86,6 +87,30 @@
                     <span class="w-2 h-2 bg-red-600 dark:bg-red-400 rounded-full mr-1"></span>
                     {{T .lang "chat.disconnected"}}
                 </span>
+                
+                <!-- Provider status -->
+                <button @click="checkProviderStatus()" class="flex items-center text-xs hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-1 rounded-lg transition-colors" title="Click to refresh status">
+                    <span 
+                        class="inline-flex items-center"
+                        :class="{
+                            'text-green-600 dark:text-green-400': providerStatus.status === 'ready',
+                            'text-red-600 dark:text-red-400': providerStatus.status === 'not_installed' || providerStatus.status === 'error',
+                            'text-yellow-600 dark:text-yellow-400': providerStatus.status === 'not_configured',
+                            'text-gray-500 dark:text-gray-400': !providerStatus.status
+                        }"
+                    >
+                        <span class="w-2 h-2 rounded-full mr-1"
+                            :class="{
+                                'bg-green-600 dark:bg-green-400': providerStatus.status === 'ready',
+                                'bg-red-600 dark:bg-red-400': providerStatus.status === 'not_installed' || providerStatus.status === 'error',
+                                'bg-yellow-600 dark:bg-yellow-400': providerStatus.status === 'not_configured',
+                                'bg-gray-400 dark:bg-gray-600': !providerStatus.status
+                            }"
+                        ></span>
+                        <span x-show="providerStatus.status" x-text="providerStatus.details || 'Provider: ' + providerStatus.status"></span>
+                        <span x-show="!providerStatus.status">Loading...</span>
+                    </span>
+                </button>
             </div>
         </div>
     </div>
@@ -163,9 +188,12 @@ function chatInterface() {
         ws: null,
         reconnectTimeout: null,
         currentResponse: '',
+        providerStatus: {},
         
         init() {
             this.connect();
+            // Check provider status asynchronously - don't block initialization
+            this.checkProviderStatus();
             
             // Auto-scroll to bottom on new messages
             this.$watch('messages', () => {
@@ -173,6 +201,24 @@ function chatInterface() {
                     this.$refs.messagesContainer.scrollTop = this.$refs.messagesContainer.scrollHeight;
                 });
             });
+            
+            // Check provider status periodically
+            setInterval(() => {
+                if (!this.isTyping) {
+                    this.checkProviderStatus();
+                }
+            }, 30000); // Check every 30 seconds
+        },
+        
+        async checkProviderStatus() {
+            try {
+                const response = await fetch(`/api/providers/${this.provider}/status`);
+                if (response.ok) {
+                    this.providerStatus = await response.json();
+                }
+            } catch (error) {
+                console.error('Failed to check provider status:', error);
+            }
         },
         
         connect() {

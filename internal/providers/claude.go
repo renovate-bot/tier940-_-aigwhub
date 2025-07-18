@@ -50,6 +50,49 @@ func (p *ClaudeProvider) IsAvailable() bool {
 	return err == nil
 }
 
+func (p *ClaudeProvider) GetStatus() ProviderStatus {
+	status := ProviderStatus{
+		Available: false,
+		Status:    "not_installed",
+		Details:   "Claude CLI not found",
+	}
+
+	// Check if claude CLI exists with a quick version check only
+	cmd := exec.Command(p.cliPath, "--version")
+	cmd.Env = os.Environ()
+	
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		// Check if this is a "command not found" error
+		if execErr, ok := err.(*exec.Error); ok && execErr.Err == exec.ErrNotFound {
+			// Command not found
+			status.Status = "not_installed"
+			status.Details = fmt.Sprintf("Claude CLI not found at '%s'", p.cliPath)
+		} else if strings.Contains(err.Error(), "no such file or directory") || 
+		          strings.Contains(err.Error(), "command not found") {
+			// Alternative check for command not found
+			status.Status = "not_installed"
+			status.Details = fmt.Sprintf("Claude CLI not found at '%s'", p.cliPath)
+		} else {
+			// Command failed for other reasons
+			status.Status = "error"
+			status.Details = fmt.Sprintf("Claude CLI error: %v", err)
+		}
+		return status
+	}
+
+	// Parse version from output
+	version := strings.TrimSpace(string(output))
+	status.Version = version
+
+	// If version check succeeded, assume it's ready (skip the help command for performance)
+	status.Available = true
+	status.Status = "ready"
+	status.Details = "Claude CLI is available"
+	
+	return status
+}
+
 // buildArgs constructs the command arguments based on provider configuration
 func (p *ClaudeProvider) buildArgs(baseArgs ...string) []string {
 	args := make([]string, 0)
